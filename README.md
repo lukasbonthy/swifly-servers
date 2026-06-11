@@ -1,107 +1,64 @@
-# Swifly Server Registry Website
+# Swifly Server Registry (No Database)
 
-A standalone website/API that lets people register their own Swifly BO3/T7 servers, download a tokenized Server Kit, run a heartbeat script, and appear in a Swifly-only server list.
+This is a database-free Node.js website/API for Swifly server listings.
 
-This should live in a **separate GitHub repo** from the Swifly client.
+## How it works
 
-## What it does
+- A host visits `/host`.
+- They create a server entry.
+- The website generates a signed token and a Server Kit ZIP.
+- The host runs the included heartbeat script.
+- The website stores active servers in memory.
+- `GET /api/servers` returns only servers that are actively heartbeating.
 
-- Provides a public `/host` form for creating a server entry.
-- Generates a private token for each server.
-- Generates a downloadable Server Kit ZIP containing:
-  - `swifly_server.json`
-  - `heartbeat.ps1`
-  - `Start-Heartbeat.bat`
-  - `Start-Swifly-Zombies.bat`
-  - `Start-Swifly-MP.bat`
-  - `server_zm.cfg`
-  - `server_mp.cfg`
-- Exposes `GET /api/servers` for the Swifly client.
-- Hides servers unless they heartbeat recently.
-- Stores state in PostgreSQL.
+Because there is no database, server listings are not permanently stored. That is intentional:
+if Render restarts, the in-memory list clears, then running heartbeat scripts re-add servers automatically.
 
-## What it does NOT do
+## Render setup
 
-It does **not** include BO3 game files, BO3 executable files, or any proprietary game content. Hosts must use BO3 server files they are authorized to run.
-
-## Run locally
+1. Create a new GitHub repo.
+2. Extract this ZIP into that repo.
+3. Push to GitHub.
+4. In Render, create a new **Web Service** or **Blueprint** from the repo.
+5. Build command:
 
 ```bash
 npm install
-cp .env.example .env
-npm run dev
 ```
 
-You need a PostgreSQL database and a valid `DATABASE_URL`.
+6. Start command:
 
-## Deploy to Render
+```bash
+npm start
+```
 
-This project includes `render.yaml`.
-
-1. Create a new, separate GitHub repo.
-2. Upload/extract this project into that repo.
-3. In Render, choose **New → Blueprint**.
-4. Connect the repo.
-5. Render will create:
-   - a Node web service
-   - a PostgreSQL database
-   - generated `ADMIN_API_KEY`
-6. Open the app URL and visit `/host`.
-
-Render Blueprints are configured with a `render.yaml` file in the repository root.
-
-## Environment variables
+7. Environment variables:
 
 ```text
-DATABASE_URL=<Postgres URL>
+APP_SECRET=<long random secret>
 ADMIN_API_KEY=<long random admin secret>
-PUBLIC_BASE_URL=https://your-render-app.onrender.com
 HEARTBEAT_TTL_SECONDS=180
 ALLOW_PUBLIC_SUBMISSIONS=true
 AUTO_VERIFY_PUBLIC_SUBMISSIONS=true
-PORT=3000
+PUBLIC_BASE_URL=https://your-app.onrender.com
 ```
 
-## Public flow
+## Pages
 
-1. Go to `/host`.
-2. Fill out server name/mode/map/port.
-3. Download the generated Server Kit.
-4. Extract it next to the server executable/configs.
-5. Run `Start-Heartbeat.bat` or `heartbeat.ps1`.
-6. The server appears in `GET /api/servers` after heartbeat succeeds.
+- `/` home
+- `/host` create a server + download a kit
+- `/api/servers` public Swifly-only JSON list
+- `/api/admin/servers` active server list, requires `x-admin-key`
+- `/health` health check
 
-## Admin API
+## User flow
 
-List all servers:
+1. Host creates server at `/host`.
+2. Host downloads `swifly-server-kit.zip`.
+3. Host extracts it into their server folder.
+4. Host runs `Start-Heartbeat.bat`.
+5. Once heartbeating, the server appears in `/api/servers`.
 
-```bash
-curl https://YOUR-APP.onrender.com/api/admin/servers \
-  -H "x-admin-key: YOUR_ADMIN_API_KEY"
-```
+## Important
 
-Hide/unhide or verify/unverify:
-
-```bash
-curl -X PATCH https://YOUR-APP.onrender.com/api/admin/servers/SERVER_ID \
-  -H "content-type: application/json" \
-  -H "x-admin-key: YOUR_ADMIN_API_KEY" \
-  -d '{"verified":true,"hidden":false}'
-```
-
-Delete:
-
-```bash
-curl -X DELETE https://YOUR-APP.onrender.com/api/admin/servers/SERVER_ID \
-  -H "x-admin-key: YOUR_ADMIN_API_KEY"
-```
-
-## Client integration target
-
-The Swifly client/server browser should call:
-
-```text
-GET https://YOUR-APP.onrender.com/api/servers
-```
-
-and render only those entries.
+This does not include BO3 game files or executables. Hosts still need to install BO3 / the unranked dedicated server legitimately.

@@ -1,8 +1,8 @@
 {
-  "name": "swifly-server-registry",
-  "version": "0.2.0",
+  "name": "swifly-server-registry-nodb",
+  "version": "0.3.0",
   "private": true,
-  "description": "Self-service Swifly BOIII server registry website and API.",
+  "description": "Database-free Swifly server registry for Render.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -17,7 +17,6 @@
     "helmet": "^7.1.0",
     "jszip": "^3.10.1",
     "morgan": "^1.10.0",
-    "pg": "^8.12.0",
     "zod": "^3.23.8"
   }
 }
