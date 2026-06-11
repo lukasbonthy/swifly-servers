@@ -9,7 +9,15 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: HEARTBEAT_TTL_SECONDS
-        value: "180"
       - key: APP_SECRET
         generateValue: true
+      - key: ADMIN_API_KEY
+        generateValue: true
+      - key: GAMESERVERS_URL
+        value: https://gameserve.rs/?game=t7
+      - key: REFRESH_INTERVAL_SECONDS
+        value: "300"
+      - key: CACHE_TTL_SECONDS
+        value: "600"
+      - key: HEARTBEAT_TTL_SECONDS
+        value: "180"

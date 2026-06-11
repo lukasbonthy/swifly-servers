@@ -1,48 +1,83 @@
 const crypto = require('crypto');
 const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const cheerio = require('cheerio');
 const JSZip = require('jszip');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = Number(process.env.PORT || 3000);
-const APP_SECRET = process.env.APP_SECRET || 'dev-only-change-me';
-const HEARTBEAT_TTL_SECONDS = Number(process.env.HEARTBEAT_TTL_SECONDS || 180);
+const APP_SECRET = process.env.APP_SECRET || 'dev-secret-change-me';
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
+const GAMESERVERS_URL = process.env.GAMESERVERS_URL || 'https://gameserve.rs/?game=t7';
+const REFRESH_INTERVAL_SECONDS = Number(process.env.REFRESH_INTERVAL_SECONDS || 300);
+const CACHE_TTL_SECONDS = Number(process.env.CACHE_TTL_SECONDS || 600);
+const HEARTBEAT_TTL_SECONDS = Number(process.env.HEARTBEAT_TTL_SECONDS || 180);
+const ALLOW_PUBLIC_SUBMISSIONS = (process.env.ALLOW_PUBLIC_SUBMISSIONS || 'true') === 'true';
 
-const activeServers = new Map();
-
-function base64urlJson(value) {
-  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+const BASE_MAP_DATA = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '..', 'data', 'base_mp_maps.json'), 'utf8')
+);
+const BASE_MAP_NAMES = new Set();
+const BASE_MAP_IDS = new Set();
+for (const map of BASE_MAP_DATA.allowed) {
+  BASE_MAP_IDS.add(normalize(map.id));
+  BASE_MAP_NAMES.add(normalize(map.name));
 }
 
-function hmac(value) {
-  return crypto.createHmac('sha256', APP_SECRET).update(value).digest('base64url');
+const manualServers = new Map();
+let gameserveCache = {
+  updatedAt: null,
+  sourceUrl: GAMESERVERS_URL,
+  servers: [],
+  rawCount: 0,
+  acceptedCount: 0,
+  rejectedCount: 0,
+  lastError: null,
+};
+
+function normalize(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[_\-\s]+/g, ' ')
+    .replace(/[^a-z0-9 ]/g, '')
+    .trim();
+}
+
+function idSafe(value) {
+  return String(value || '')
+    .replace(/[^a-zA-Z0-9_.:\-[\]]/g, '')
+    .slice(0, 128);
 }
 
 function sign(payload) {
-  const body = base64urlJson(payload);
-  return `${body}.${hmac(body)}`;
+  return crypto
+    .createHmac('sha256', APP_SECRET)
+    .update(payload)
+    .digest('base64url');
 }
 
-function verify(token) {
-  const [body, signature] = String(token || '').split('.');
-  if (!body || !signature) return null;
-  const expected = hmac(body);
-  const a = Buffer.from(signature);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  try {
-    return JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
-  } catch {
-    return null;
-  }
+function makeToken(serverId) {
+  const nonce = crypto.randomBytes(16).toString('base64url');
+  const payload = `${serverId}.${nonce}`;
+  return `${payload}.${sign(payload)}`;
 }
 
-function html(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+function verifyToken(serverId, token) {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  const payload = `${parts[0]}.${parts[1]}`;
+  return parts[0] === serverId && sign(payload) === parts[2];
+}
+
+function requireAdmin(req, res, next) {
+  if (!ADMIN_API_KEY) return res.status(500).json({ error: 'ADMIN_API_KEY is not configured' });
+  if ((req.header('x-admin-key') || '') !== ADMIN_API_KEY) return res.status(401).json({ error: 'invalid admin key' });
+  next();
 }
 
 function baseUrl(req) {
@@ -54,182 +89,464 @@ function clientIp(req) {
   return forwarded ? forwarded.split(',')[0].trim() : (req.socket.remoteAddress || '');
 }
 
-function cleanString(value, fallback, max = 64) {
-  const result = String(value || fallback || '').trim().slice(0, max);
-  return result || fallback;
+function num(value, fallback = 0) {
+  if (value === null || value === undefined || value === '') return fallback;
+  const parsed = Number(String(value).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function toInt(value, fallback, min, max) {
-  const n = Number.parseInt(value, 10);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(Math.max(n, min), max);
+function firstValue(object, keys) {
+  if (!object || typeof object !== 'object') return '';
+  for (const key of keys) {
+    if (object[key] !== undefined && object[key] !== null && object[key] !== '') return object[key];
+  }
+  return '';
 }
 
-function serverFromForm(body) {
-  const mode = ['zm', 'mp', 'cp'].includes(body.mode) ? body.mode : 'zm';
+function extractAddressPort(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return {};
+  const hostPort = raw.match(/^\[?([a-fA-F0-9:.]+)\]?:(\d{2,5})$/) || raw.match(/^([^:\s]+):(\d{2,5})$/);
+  if (hostPort) return { address: idSafe(hostPort[1]), port: num(hostPort[2], 0) };
+  return { address: idSafe(raw), port: 0 };
+}
+
+function looksLikeServerObject(object) {
+  if (!object || typeof object !== 'object' || Array.isArray(object)) return false;
+  const hasName = firstValue(object, ['name', 'hostname', 'serverName', 'server_name']);
+  const hasAddress = firstValue(object, ['address', 'ip', 'host', 'addr', 'endpoint', 'connectAddr', 'connect_addr']);
+  const hasPort = firstValue(object, ['port', 'gamePort', 'game_port', 'queryPort', 'query_port']);
+  const hasMap = firstValue(object, ['map', 'mapName', 'mapname', 'currentMap', 'current_map']);
+  return !!(hasName && (hasAddress || hasPort || hasMap));
+}
+
+function collectServerObjects(value, output = []) {
+  if (!value || output.length > 2000) return output;
+  if (Array.isArray(value)) {
+    for (const item of value) collectServerObjects(item, output);
+    return output;
+  }
+  if (typeof value !== 'object') return output;
+  if (looksLikeServerObject(value)) output.push(value);
+  for (const key of Object.keys(value)) collectServerObjects(value[key], output);
+  return output;
+}
+
+function normalizeServer(object, source = 'gameserve.rs') {
+  let address = String(firstValue(object, ['connectAddr', 'connect_addr', 'address', 'ip', 'host', 'addr', 'endpoint']) || '').trim();
+  let port = num(firstValue(object, ['port', 'gamePort', 'game_port', 'queryPort', 'query_port']), 0);
+
+  if (address.includes(':') && !port) {
+    const parsed = extractAddressPort(address);
+    address = parsed.address;
+    port = parsed.port;
+  }
+
+  const name = String(firstValue(object, ['name', 'hostname', 'serverName', 'server_name']) || 'T7 Server').trim();
+  const map = String(firstValue(object, ['map', 'mapName', 'mapname', 'currentMap', 'current_map']) || '').trim();
+  const gametype = String(firstValue(object, ['gametype', 'gameType', 'game_type', 'mode', 'playlist', 'type']) || '').trim();
+  const players = num(firstValue(object, ['players', 'numPlayers', 'num_players', 'clients', 'clientCount', 'playerCount']), 0);
+  const maxPlayers = num(firstValue(object, ['maxPlayers', 'max_players', 'maxclients', 'maxClients', 'max_clients']), 18);
+  const passwordedValue = firstValue(object, ['passworded', 'passwordProtected', 'password_protected', 'private']);
+  const passworded =
+    passwordedValue === true ||
+    String(passwordedValue || '').toLowerCase() === 'true' ||
+    String(passwordedValue || '') === '1';
+
   return {
-    id: crypto.randomUUID(),
-    name: cleanString(body.name, 'Swifly Server', 64),
-    mode,
-    map: cleanString(body.map, mode === 'mp' ? 'mp_hunted' : 'zm_zod', 64),
-    region: cleanString(body.region, '', 32),
-    description: cleanString(body.description, '', 256),
-    port: toInt(body.port, 27017, 1, 65535),
-    players: 0,
-    maxPlayers: toInt(body.maxPlayers, 8, 1, 64),
-    passworded: body.passworded === 'on' || body.passworded === 'true',
-    issuedAt: Date.now(),
+    id: crypto.createHash('sha1').update(`${source}|${address}|${port}|${name}`).digest('hex').slice(0, 16),
+    source,
+    name,
+    address: idSafe(address),
+    port,
+    connectAddr: port ? `${idSafe(address)}:${port}` : idSafe(address),
+    mode: 'mp',
+    map,
+    gametype,
+    region: String(firstValue(object, ['region', 'country', 'location']) || '').trim(),
+    description: String(firstValue(object, ['description', 'desc', 'details']) || '').trim(),
+    players,
+    maxPlayers,
+    passworded,
+    lastHeartbeatAt: new Date().toISOString(),
   };
 }
 
-function publicServer(server) {
-  return {
-    id: server.id,
-    name: server.name,
-    address: server.address,
-    port: server.port,
-    mode: server.mode,
-    map: server.map,
-    region: server.region || '',
-    description: server.description || '',
-    players: server.players || 0,
-    maxPlayers: server.maxPlayers || 8,
-    passworded: Boolean(server.passworded),
-    version: server.version || '',
-    lastHeartbeatAt: server.lastHeartbeatAt,
-  };
+function isTeamDeathmatch(server) {
+  const haystack = normalize(`${server.gametype} ${server.mode} ${server.name} ${server.description}`);
+  return (
+    /\btdm\b/.test(haystack) ||
+    haystack.includes('team deathmatch') ||
+    haystack.includes('teamdeathmatch')
+  );
 }
 
-function pruneExpired() {
-  const cutoff = Date.now() - HEARTBEAT_TTL_SECONDS * 1000;
-  for (const [id, server] of activeServers.entries()) {
-    if (!server.lastHeartbeatMs || server.lastHeartbeatMs < cutoff) activeServers.delete(id);
+function isBaseMultiplayerMap(server) {
+  const mapNorm = normalize(server.map);
+  if (!mapNorm) return false;
+  if (BASE_MAP_IDS.has(mapNorm.replace(/ /g, '_'))) return true;
+  if (BASE_MAP_NAMES.has(mapNorm)) return true;
+
+  // Gameserve entries sometimes contain the friendly map name in description/name instead.
+  const text = normalize(`${server.map} ${server.name} ${server.description}`);
+  for (const name of BASE_MAP_NAMES) {
+    if (text.includes(name)) return true;
+  }
+  for (const id of BASE_MAP_IDS) {
+    if (text.includes(id.replace(/_/g, ' '))) return true;
+  }
+  return false;
+}
+
+function isValidFilteredServer(server) {
+  if (!server.address || !server.port) return false;
+  if (server.passworded) return false;
+  if (!isTeamDeathmatch(server)) return false;
+  if (!isBaseMultiplayerMap(server)) return false;
+  return true;
+}
+
+function parseJsonFromHtml(html) {
+  const $ = cheerio.load(html);
+  const candidates = [];
+
+  const nextData = $('#__NEXT_DATA__').text();
+  if (nextData) candidates.push(nextData);
+
+  $('script').each((_, el) => {
+    const text = $(el).text();
+    if (!text || text.length < 20) return;
+    // Try whole-script JSON first.
+    candidates.push(text.trim());
+
+    // Try common assignment forms: window.__DATA__ = {...};
+    const assignment = text.match(/=\s*({[\s\S]*}|\[[\s\S]*\])\s*;?\s*$/);
+    if (assignment) candidates.push(assignment[1]);
+
+    // Try embedded arrays/objects near server-looking words.
+    if (/server|hostname|map|gametype|players/i.test(text)) {
+      const blocks = text.match(/(\{[\s\S]{50,}\}|\[[\s\S]{50,}\])/g) || [];
+      for (const block of blocks.slice(0, 10)) candidates.push(block);
+    }
+  });
+
+  const objects = [];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      collectServerObjects(parsed, objects);
+    } catch {
+      // Ignore non-JSON scripts.
+    }
+  }
+
+  return objects;
+}
+
+function parseTableRowsFromHtml(html) {
+  const $ = cheerio.load(html);
+  const objects = [];
+
+  $('table tbody tr, table tr, .server, [class*="server"]').each((_, el) => {
+    const text = $(el).text().replace(/\s+/g, ' ').trim();
+    if (!text || text.length < 8) return;
+
+    const endpoint = text.match(/((?:\d{1,3}\.){3}\d{1,3}|\[[a-fA-F0-9:.]+\]|[a-zA-Z0-9_.-]+\.[a-zA-Z]{2,})(?::|\s+)(\d{2,5})/);
+    if (!endpoint) return;
+
+    const map = (text.match(/\bmp[_a-z0-9-]+\b/i) || [])[0] || '';
+    const gametype = /\btdm\b|team deathmatch/i.test(text) ? 'tdm' : '';
+
+    objects.push({
+      name: text.slice(0, 80),
+      address: endpoint[1].replace(/^\[|\]$/g, ''),
+      port: endpoint[2],
+      map,
+      gametype,
+      players: 0,
+      maxPlayers: 18,
+    });
+  });
+
+  return objects;
+}
+
+async function fetchText(url) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'accept': 'text/html,application/json',
+        'user-agent': 'SwiflyServerRegistry/0.3 (+https://swifly-servers.onrender.com)'
+      }
+    });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return await response.text();
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
+async function refreshGameserveServers() {
+  const urls = [
+    GAMESERVERS_URL,
+    'https://gameserve.rs/api/servers?game=t7',
+    'https://gameserve.rs/api/servers/t7',
+    'https://gameserve.rs/servers.json?game=t7'
+  ];
+
+  let lastError = null;
+  const rawObjects = [];
+  for (const url of urls) {
+    try {
+      const text = await fetchText(url);
+      const contentTypeLooksJson = /^\s*[\[{]/.test(text);
+      if (contentTypeLooksJson) {
+        try {
+          collectServerObjects(JSON.parse(text), rawObjects);
+        } catch {}
+      }
+      rawObjects.push(...parseJsonFromHtml(text));
+      rawObjects.push(...parseTableRowsFromHtml(text));
+      if (rawObjects.length > 0) break;
+    } catch (error) {
+      lastError = `${url}: ${error.message}`;
+    }
+  }
+
+  const seen = new Set();
+  const accepted = [];
+  const normalized = rawObjects.map((item) => normalizeServer(item, 'gameserve.rs'));
+
+  for (const server of normalized) {
+    const key = `${server.address}:${server.port}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (isValidFilteredServer(server)) accepted.push(server);
+  }
+
+  gameserveCache = {
+    updatedAt: new Date().toISOString(),
+    sourceUrl: GAMESERVERS_URL,
+    servers: accepted,
+    rawCount: normalized.length,
+    acceptedCount: accepted.length,
+    rejectedCount: Math.max(0, normalized.length - accepted.length),
+    lastError: accepted.length ? null : lastError,
+  };
+
+  return gameserveCache;
+}
+
+function visibleManualServers() {
+  const now = Date.now();
+  const visible = [];
+  for (const server of manualServers.values()) {
+    if (!server.verified || server.hidden) continue;
+    if (!server.lastHeartbeatAt) continue;
+    if (now - Date.parse(server.lastHeartbeatAt) > HEARTBEAT_TTL_SECONDS * 1000) continue;
+    // Keep the same strict filters unless the host has explicitly chosen a base TDM setup.
+    if (!isValidFilteredServer(server)) continue;
+    visible.push(server);
+  }
+  return visible;
+}
+
+async function ensureFreshGameserveCache() {
+  if (!gameserveCache.updatedAt) return refreshGameserveServers();
+  const ageMs = Date.now() - Date.parse(gameserveCache.updatedAt);
+  if (ageMs > CACHE_TTL_SECONDS * 1000) return refreshGameserveServers();
+  return gameserveCache;
+}
+
+function htmlPage(title, body) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>
+  :root{color-scheme:dark}body{font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:#0b0d13;color:#fff;max-width:980px;margin:40px auto;padding:0 18px}a{color:#8ab4ff}h1{letter-spacing:-.04em}.card{background:#151927;border:1px solid #293044;border-radius:18px;padding:22px;margin:16px 0}.muted{color:rgba(255,255,255,.62)}input,select,textarea{width:100%;box-sizing:border-box;padding:11px;border-radius:10px;border:1px solid #333b51;background:#0f1420;color:#fff}label{display:block;margin:12px 0 6px}.btn,button{display:inline-block;background:#f47b20;color:#fff;border:0;border-radius:12px;padding:12px 16px;font-weight:800;text-decoration:none;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}code,pre{background:#06080d;border-radius:10px;padding:12px;overflow:auto}.pill{display:inline-block;border:1px solid #343b52;border-radius:999px;padding:4px 9px;margin:3px;color:#ddd}.server{border-bottom:1px solid #273046;padding:12px 0}.server:last-child{border-bottom:0}.ok{color:#22c55e}.bad{color:#ef4444}
+  </style></head><body>${body}</body></html>`;
+}
+
 function serverCfg(server) {
-  const name = String(server.name || 'Swifly Server').replaceAll('"', "'");
-  const map = String(server.map || 'zm_zod').replace(/[^a-zA-Z0-9_]/g, '');
+  const safeName = String(server.name || 'Swifly TDM Server').replaceAll('"', "'");
+  const safeMap = String(server.map || 'mp_sector').replace(/[^a-zA-Z0-9_]/g, '');
   return [
     '// Generated by Swifly Server Registry',
-    `set sv_hostname "${name}"`,
-    `set live_steam_server_name "${name}"`,
-    `set sv_maxclients "${server.maxPlayers || 8}"`,
-    `set net_port "${server.port || 27017}"`,
+    'set sv_hostname "' + safeName + '"',
+    'set live_steam_server_name "' + safeName + '"',
+    'set sv_maxclients "' + Number(server.maxPlayers || 18) + '"',
+    'set net_port "' + Number(server.port || 27017) + '"',
     'set g_password ""',
-    `set sv_maprotation "map ${map}"`,
-    '',
+    'set gametype "tdm"',
+    'set sv_maprotation "gametype tdm map ' + safeMap + '"',
+    ''
   ].join('\r\n');
 }
 
-function heartbeatPs1(api, token, server) {
-  const payload = {
-    api,
-    token,
-    port: server.port,
-    mode: server.mode,
-    map: server.map,
-    maxPlayers: server.maxPlayers,
-  };
-
-  return `$ErrorActionPreference = "Continue"\r\n\r\n$Config = @'\r\n${JSON.stringify(payload, null, 2)}\r\n'@ | ConvertFrom-Json\r\n\r\nWrite-Host "Swifly heartbeat running. Do not close this window."\r\n\r\nwhile ($true) {\r\n  try {\r\n    $Body = @{\r\n      port = [int]$Config.port\r\n      mode = [string]$Config.mode\r\n      map = [string]$Config.map\r\n      players = 0\r\n      maxPlayers = [int]$Config.maxPlayers\r\n      version = "swifly-oneclick-0.4.0"\r\n    } | ConvertTo-Json\r\n\r\n    Invoke-RestMethod -Method Post -Uri "$($Config.api)/api/heartbeat" -Headers @{ Authorization = "Bearer $($Config.token)" } -ContentType "application/json" -Body $Body | Out-Null\r\n    Write-Host "[$(Get-Date -Format T)] Listed on Swifly."\r\n  } catch {\r\n    Write-Warning "Heartbeat failed: $($_.Exception.Message)"\r\n  }\r\n\r\n  Start-Sleep -Seconds 30\r\n}\r\n`;
+function heartbeatPs1(apiUrl, serverId, token, server) {
+  return `$ErrorActionPreference = "Stop"\r\n\r\n$Api = "${apiUrl}"\r\n$ServerId = "${serverId}"\r\n$Token = "${token}"\r\n\r\nWrite-Host "Swifly heartbeat started for $ServerId"\r\nWrite-Host "Keep this window open while your Team Deathmatch server is running."\r\n\r\nwhile ($true) {\r\n  try {\r\n    $Body = @{\r\n      address = ""\r\n      port = ${Number(server.port || 27017)}\r\n      mode = "mp"\r\n      map = "${String(server.map || 'mp_sector')}"\r\n      gametype = "tdm"\r\n      players = 0\r\n      maxPlayers = ${Number(server.maxPlayers || 18)}\r\n      passworded = $false\r\n      version = "swifly-tdm-kit-0.3.0"\r\n    } | ConvertTo-Json\r\n\r\n    Invoke-RestMethod -Method Post -Uri "$Api/api/servers/$ServerId/heartbeat" -Headers @{ Authorization = "Bearer $Token" } -ContentType "application/json" -Body $Body | Out-Null\r\n    Write-Host "Heartbeat OK $(Get-Date)"\r\n  } catch {\r\n    Write-Warning "Heartbeat failed: $($_.Exception.Message)"\r\n  }\r\n\r\n  Start-Sleep -Seconds 30\r\n}\r\n`;
 }
 
-function startBat(server) {
-  const cfg = server.mode === 'mp' ? 'server_mp.cfg' : 'server_zm.cfg';
-  return `@echo off\r\nsetlocal\r\ntitle Swifly Server Launcher\r\ncd /d "%~dp0"\r\n\r\necho ========================================\r\necho        Swifly Server One-Click Kit\r\necho ========================================\r\necho.\r\necho Starting Swifly heartbeat...\r\nstart "Swifly Heartbeat" powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0heartbeat.ps1"\r\n\r\necho Starting server if a known executable exists...\r\nset SERVER_EXE=\r\nif exist "%~dp0swiflyboiii.exe" set SERVER_EXE=%~dp0swiflyboiii.exe\r\nif "%SERVER_EXE%"=="" if exist "%~dp0t7x.exe" set SERVER_EXE=%~dp0t7x.exe\r\nif "%SERVER_EXE%"=="" if exist "%~dp0BlackOps3_UnrankedDedicatedServer.exe" set SERVER_EXE=%~dp0BlackOps3_UnrankedDedicatedServer.exe\r\n\r\nif "%SERVER_EXE%"=="" (\r\n  echo Could not find swiflyboiii.exe, t7x.exe, or BlackOps3_UnrankedDedicatedServer.exe.\r\n  echo Put this kit in your server folder, then run this file again.\r\n  echo The heartbeat is still running if you started it.\r\n  pause\r\n  exit /b 1\r\n)\r\n\r\necho Found: %SERVER_EXE%\r\nstart "Swifly Game Server" "%SERVER_EXE%" -dedicated +set net_port ${server.port || 27017} +set logfile 2 +exec ${cfg}\r\n\r\necho.\r\necho Done. Keep the heartbeat window open.\r\npause\r\n`;
-}
-
-async function buildKit(req, server, token) {
-  const api = baseUrl(req);
+async function makeKit(req, serverId, token, server) {
   const zip = new JSZip();
-  zip.file('START_SWIFLY_SERVER.bat', startBat(server));
-  zip.file('heartbeat.ps1', heartbeatPs1(api, token, server));
-  zip.file('server_zm.cfg', serverCfg({ ...server, mode: 'zm' }));
-  zip.file('server_mp.cfg', serverCfg({ ...server, mode: 'mp' }));
-  zip.file('swifly_server.json', JSON.stringify({ api, token, ...server }, null, 2));
+  const apiUrl = baseUrl(req);
   zip.file('README_FIRST.txt', [
-    'Swifly One-Click Server Kit',
+    'Swifly Team Deathmatch Server Kit',
     '',
-    '1. Extract this ZIP into your BO3/Swifly dedicated server folder.',
-    '2. Make sure swiflyboiii.exe, t7x.exe, or BlackOps3_UnrankedDedicatedServer.exe is in that folder.',
-    '3. Double-click START_SWIFLY_SERVER.bat.',
-    '4. Keep the heartbeat window open.',
-    '5. Your server appears at:',
-    `   ${api}/api/servers`,
+    'This kit is base-map Team Deathmatch only. No DLC maps are included or selected.',
+    '1. Put these files next to your Swifly/BO3 dedicated server executable.',
+    '2. Edit server_mp.cfg only if you know what you are changing.',
+    '3. Run START_SWIFLY_TDM_SERVER.bat.',
+    '4. Keep the heartbeat window open so the server appears in Swifly.',
     '',
-    'This kit does not include BO3 game files or executables.',
+    'This kit does not include BO3 game files.'
   ].join('\r\n'));
+  zip.file('swifly_server.json', JSON.stringify({ serverId, token, api: apiUrl, mode: 'mp', gametype: 'tdm', port: server.port, map: server.map }, null, 2));
+  zip.file('server_mp.cfg', serverCfg(server));
+  zip.file('heartbeat.ps1', heartbeatPs1(apiUrl, serverId, token, server));
+  zip.file('START_SWIFLY_TDM_SERVER.bat', '@echo off\r\nsetlocal\r\nset GamePort=' + Number(server.port || 27017) + '\r\nset ServerFilename=server_mp.cfg\r\nstart "Swifly TDM Heartbeat" powershell -ExecutionPolicy Bypass -File "%~dp0heartbeat.ps1"\r\nif exist swiflyboiii.exe (\r\n  start "Swifly TDM Server" swiflyboiii.exe -dedicated +set net_port "%GamePort%" +set logfile 2 +exec %ServerFilename%\r\n) else if exist t7x.exe (\r\n  start "Swifly TDM Server" t7x.exe -dedicated +set net_port "%GamePort%" +set logfile 2 +exec %ServerFilename%\r\n) else (\r\n  echo Put this kit next to swiflyboiii.exe or t7x.exe, then run this file again.\r\n  pause\r\n)\r\n');
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-}
-
-function page(title, body) {
-  return `<!doctype html><html><head><title>${html(title)}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui;background:#080a10;color:white;max-width:900px;margin:36px auto;padding:0 18px}.card{background:#141924;border:1px solid #293246;border-radius:18px;padding:24px;margin:18px 0}a{color:#8ab4ff}input,select,textarea{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #34405c;background:#0d111b;color:white;margin:6px 0 14px}button{background:#ff7a1a;color:white;border:0;border-radius:14px;padding:14px 18px;font-weight:800;font-size:16px;cursor:pointer}.steps{display:grid;gap:12px}.step{background:#0d111b;border-radius:14px;padding:14px}small{color:#aab4cc}pre{background:#0d111b;border-radius:12px;padding:14px;overflow:auto}</style></head><body>${body}</body></html>`;
 }
 
 const app = express();
 app.set('trust proxy', true);
-app.use(express.urlencoded({ extended: false }));
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors());
 app.use(express.json({ limit: '64kb' }));
+app.use(express.urlencoded({ extended: false }));
+app.use(morgan('tiny'));
 
-app.get('/health', (_req, res) => res.json({ ok: true, activeServers: activeServers.size }));
+app.get('/health', (req, res) => res.json({ ok: true, service: 'swifly-gameservers-tdm', cache: gameserveCache }));
 
-app.get('/', (req, res) => {
-  res.type('html').send(page('Swifly Servers', `<h1>Swifly Server Hosting</h1><div class="card"><div class="steps"><div class="step"><strong>1.</strong> Create your server kit.</div><div class="step"><strong>2.</strong> Extract it into your server folder.</div><div class="step"><strong>3.</strong> Double-click <code>START_SWIFLY_SERVER.bat</code>.</div></div><p><a href="/host"><button>Create Server Kit</button></a></p><p><a href="/api/servers">View live Swifly server list</a></p></div>`));
+app.get('/', async (req, res) => {
+  await ensureFreshGameserveCache().catch(() => {});
+  const list = [...gameserveCache.servers, ...visibleManualServers()];
+  const rows = list.map(s => `<div class="server"><b>${escapeHtml(s.name)}</b><br><span class="muted">${escapeHtml(s.connectAddr)} · ${escapeHtml(s.map)} · ${escapeHtml(s.gametype || 'tdm')} · ${s.players}/${s.maxPlayers}</span></div>`).join('') || '<p class="muted">No filtered TDM base-map servers are online right now.</p>';
+  res.type('html').send(htmlPage('Swifly TDM Servers', `<h1>Swifly TDM Servers</h1><div class="card"><p>Live list filtered from Gameserve.rs for <b>Black Ops 3 / T7 multiplayer</b>, <b>Team Deathmatch only</b>, and <b>base maps only</b>. DLC maps are excluded.</p><p><a class="btn" href="/api/servers">View API</a> <a class="btn" href="/host">Add your TDM server</a></p></div><div class="card"><p class="muted">Last refresh: ${gameserveCache.updatedAt || 'never'} · Raw: ${gameserveCache.rawCount} · Accepted: ${gameserveCache.acceptedCount} · Rejected: ${gameserveCache.rejectedCount}</p>${rows}</div>`));
 });
 
-app.get('/host', (_req, res) => {
-  res.type('html').send(page('Create Server Kit', `<h1>Create Server Kit</h1><div class="card"><form method="post" action="/kit.zip"><label>Server name</label><input name="name" required minlength="3" maxlength="64" placeholder="Swifly Zombies #1"><label>Mode</label><select name="mode"><option value="zm">Zombies</option><option value="mp">Multiplayer</option><option value="cp">Campaign</option></select><label>Map</label><input name="map" value="zm_zod" required><details><summary>Advanced options</summary><label>Port</label><input name="port" type="number" min="1" max="65535" value="27017"><label>Max players</label><input name="maxPlayers" type="number" min="1" max="64" value="8"><label>Region</label><input name="region" placeholder="NA / EU / AU"><label>Description</label><textarea name="description" rows="3" maxlength="256"></textarea><label><input style="width:auto" type="checkbox" name="passworded"> Passworded</label></details><button type="submit">Download Server Kit</button></form></div><p><a href="/">Back</a></p>`));
+app.get('/host', (req, res) => {
+  const mapOptions = BASE_MAP_DATA.allowed.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+  res.type('html').send(htmlPage('Add Swifly TDM Server', `<h1>Add your Swifly TDM Server</h1><div class="card"><p class="muted">This form only creates a base-map Team Deathmatch kit. It will not create Zombies, Campaign, or DLC listings.</p><form method="post" action="/host"><label>Server name</label><input name="name" required minlength="3" maxlength="64" value="Swifly TDM Server"><label>Base map</label><select name="map">${mapOptions}</select><label>Region</label><input name="region" placeholder="NA / EU / AU"><label>Port</label><input name="port" type="number" min="1" max="65535" value="27017"><label>Max players</label><input name="maxPlayers" type="number" min="1" max="32" value="18"><button type="submit">Download TDM Server Kit</button></form></div>`));
 });
 
-app.post('/kit.zip', async (req, res, next) => {
+app.post('/host', async (req, res, next) => {
   try {
-    const server = serverFromForm(req.body || {});
-    const token = sign({ id: server.id, server, issuedAt: Date.now() });
-    const zip = await buildKit(req, server, token);
+    if (!ALLOW_PUBLIC_SUBMISSIONS) return res.status(403).send('Public submissions are disabled.');
+    const serverId = crypto.randomUUID();
+    const token = makeToken(serverId);
+    const map = String(req.body.map || 'mp_sector');
+    if (!BASE_MAP_IDS.has(normalize(map).replace(/ /g, '_'))) return res.status(400).send('Only base multiplayer maps are allowed.');
+    const server = {
+      id: serverId,
+      source: 'manual',
+      name: String(req.body.name || 'Swifly TDM Server').slice(0, 64),
+      address: '',
+      port: num(req.body.port, 27017),
+      connectAddr: '',
+      mode: 'mp',
+      map,
+      gametype: 'tdm',
+      region: String(req.body.region || '').slice(0, 32),
+      description: 'Manual Swifly Team Deathmatch server',
+      players: 0,
+      maxPlayers: Math.min(num(req.body.maxPlayers, 18), 32),
+      passworded: false,
+      verified: true,
+      hidden: false,
+      token,
+      lastHeartbeatAt: null,
+    };
+    manualServers.set(serverId, server);
+    const zip = await makeKit(req, serverId, token, server);
     res.setHeader('content-type', 'application/zip');
-    res.setHeader('content-disposition', `attachment; filename="swifly-server-kit-${server.id}.zip"`);
+    res.setHeader('content-disposition', `attachment; filename="swifly-tdm-server-${serverId}.zip"`);
     res.send(zip);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    next(error);
   }
 });
 
-app.post('/api/heartbeat', (req, res) => {
-  const header = req.header('authorization') || '';
-  const token = header.match(/^Bearer\s+(.+)$/i)?.[1];
-  const verified = verify(token);
-  if (!verified?.server?.id) return res.status(401).json({ error: 'invalid token' });
-
-  const now = Date.now();
-  const update = req.body || {};
-  const server = {
-    ...verified.server,
-    ...update,
-    id: verified.server.id,
-    address: update.address || clientIp(req),
-    lastHeartbeatMs: now,
-    lastHeartbeatAt: new Date(now).toISOString(),
-  };
-  activeServers.set(server.id, server);
-  pruneExpired();
-  res.json({ ok: true, server: publicServer(server) });
+app.get('/api/servers', async (req, res, next) => {
+  try {
+    await ensureFreshGameserveCache();
+    const list = [...gameserveCache.servers, ...visibleManualServers()];
+    res.json(list.map(({ token, ...server }) => server));
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.get('/api/servers', (_req, res) => {
-  pruneExpired();
-  res.json([...activeServers.values()].sort((a, b) => (b.lastHeartbeatMs || 0) - (a.lastHeartbeatMs || 0)).map(publicServer));
+app.get('/api/status', async (req, res) => {
+  res.json({
+    cache: gameserveCache,
+    manualServerCount: manualServers.size,
+    allowedMaps: BASE_MAP_DATA.allowed,
+    filters: {
+      game: 't7',
+      mode: 'mp',
+      gametype: 'tdm',
+      dlc: 'excluded',
+      source: GAMESERVERS_URL
+    }
+  });
 });
 
-app.get('/servers', (_req, res) => {
-  pruneExpired();
-  const rows = [...activeServers.values()].map((s) => `<tr><td>${html(s.name)}</td><td>${html(s.mode)}</td><td>${html(s.map)}</td><td>${html(s.address)}:${html(s.port)}</td><td>${html(s.players || 0)}/${html(s.maxPlayers || 8)}</td></tr>`).join('');
-  res.type('html').send(page('Live Servers', `<h1>Live Swifly Servers</h1><div class="card"><table width="100%"><tr><th align="left">Name</th><th align="left">Mode</th><th align="left">Map</th><th align="left">Address</th><th align="left">Players</th></tr>${rows || '<tr><td colspan="5">No servers online yet.</td></tr>'}</table></div><p><a href="/host">Create Server Kit</a></p>`));
+app.post('/api/admin/refresh', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await refreshGameserveServers();
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.use((err, _req, res, _next) => {
-  console.error(err);
-  res.status(500).send('Server error');
+app.post('/api/servers/:id/heartbeat', (req, res) => {
+  const token = (req.header('authorization') || '').replace(/^Bearer\s+/i, '');
+  const server = manualServers.get(req.params.id);
+  if (!server || !verifyToken(req.params.id, token)) return res.status(401).json({ error: 'invalid server or token' });
+
+  const address = String(req.body.address || '').trim() || clientIp(req);
+  server.address = idSafe(address);
+  server.port = num(req.body.port, server.port);
+  server.connectAddr = `${server.address}:${server.port}`;
+  server.players = num(req.body.players, server.players);
+  server.maxPlayers = num(req.body.maxPlayers, server.maxPlayers);
+  server.map = String(req.body.map || server.map);
+  server.gametype = 'tdm';
+  server.mode = 'mp';
+  server.passworded = false;
+  server.lastHeartbeatAt = new Date().toISOString();
+  manualServers.set(server.id, server);
+  const { token: _, ...publicView } = server;
+  res.json({ ok: true, server: publicView });
 });
 
-app.listen(PORT, '0.0.0.0', () => console.log(`Swifly one-click registry running on ${PORT}`));
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+app.use((error, req, res, next) => {
+  console.error(error);
+  res.status(500).json({ error: 'internal server error', message: error.message });
+});
+
+refreshGameserveServers().catch(error => {
+  gameserveCache.lastError = error.message;
+});
+
+setInterval(() => {
+  refreshGameserveServers().catch(error => {
+    gameserveCache.lastError = error.message;
+    gameserveCache.updatedAt = new Date().toISOString();
+  });
+}, Math.max(REFRESH_INTERVAL_SECONDS, 60) * 1000);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Swifly TDM registry listening on ${PORT}`);
+});

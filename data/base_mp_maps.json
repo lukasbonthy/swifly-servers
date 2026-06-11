@@ -1,0 +1,53 @@
+{
+  "note": "Only these BO3 base multiplayer maps are allowed by the Gameserve import filter. Nuketown and DLC maps are intentionally excluded.",
+  "allowed": [
+    {
+      "id": "mp_sector",
+      "name": "Combine"
+    },
+    {
+      "id": "mp_havoc",
+      "name": "Havoc"
+    },
+    {
+      "id": "mp_veiled",
+      "name": "Fringe"
+    },
+    {
+      "id": "mp_apartments",
+      "name": "Evac"
+    },
+    {
+      "id": "mp_biodome",
+      "name": "Aquarium"
+    },
+    {
+      "id": "mp_stronghold",
+      "name": "Stronghold"
+    },
+    {
+      "id": "mp_infection",
+      "name": "Infection"
+    },
+    {
+      "id": "mp_metro",
+      "name": "Metro"
+    },
+    {
+      "id": "mp_redwood",
+      "name": "Redwood"
+    },
+    {
+      "id": "mp_hunted",
+      "name": "Hunted"
+    },
+    {
+      "id": "mp_chinatown",
+      "name": "Exodus"
+    },
+    {
+      "id": "mp_spire",
+      "name": "Breach"
+    }
+  ]
+}

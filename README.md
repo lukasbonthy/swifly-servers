@@ -1,52 +1,52 @@
-# Swifly Server Registry — One-Click / No Database
+# Swifly TDM Server Registry
 
-This is the easiest test version of the Swifly server-list website.
+Node.js-only Swifly server list website for Render.
 
-## What the host does
+This version is configured for:
 
-1. Visit `/host`.
-2. Fill out the tiny form.
-3. Click **Download Server Kit**.
-4. Extract the ZIP into their BO3/Swifly server folder.
-5. Double-click `START_SWIFLY_SERVER.bat`.
-6. Their server appears in `/api/servers` after the heartbeat succeeds.
+- Source: `https://gameserve.rs/?game=t7`
+- Game: T7 / Black Ops 3
+- Mode: Multiplayer only
+- Gametype: Team Deathmatch only
+- Maps: base multiplayer maps only
+- DLC maps: excluded
 
-## Render deploy
+## Deploy on Render
 
-Create a new GitHub repo, upload these files, then create a Render Node.js Web Service.
+1. Create a new GitHub repo.
+2. Extract this ZIP into that repo.
+3. Push it.
+4. Render → New → Web Service.
+5. Build command: `npm install`
+6. Start command: `npm start`
 
-Build command:
-
-```bash
-npm install
-```
-
-Start command:
-
-```bash
-npm start
-```
-
-Environment variables are optional for testing, but recommended:
+Environment variables:
 
 ```text
-APP_SECRET=<long random string>
-HEARTBEAT_TTL_SECONDS=180
+APP_SECRET=<long random secret>
+ADMIN_API_KEY=<long random admin secret>
 PUBLIC_BASE_URL=https://your-app.onrender.com
+GAMESERVERS_URL=https://gameserve.rs/?game=t7
+REFRESH_INTERVAL_SECONDS=300
+CACHE_TTL_SECONDS=600
+HEARTBEAT_TTL_SECONDS=180
+ALLOW_PUBLIC_SUBMISSIONS=true
 ```
 
-## Public client endpoint
+## Endpoints
 
 ```text
-GET /api/servers
+GET  /
+GET  /host
+GET  /api/servers
+GET  /api/status
+POST /api/admin/refresh
+POST /api/servers/:id/heartbeat
 ```
 
-The Swifly client should read this endpoint and show only these servers.
+## Notes
 
-## No database behavior
+The importer is intentionally strict. It only returns non-passworded Team Deathmatch servers on known base multiplayer maps.
+If Gameserve.rs changes its HTML/API layout, check `/api/status` to see raw/accepted/rejected counts and the latest import error.
 
-This version stores only actively heartbeating servers in memory. If Render restarts or the service sleeps, the list clears, but any running `heartbeat.ps1` will automatically re-add the server on its next heartbeat.
-
-## Important
-
-This website does not include BO3 game files or executables. Hosts must use their own legally installed BO3/Unranked Dedicated Server files.
+The `/host` page also creates Swifly Team Deathmatch server kits. Those kits are base-map TDM only.
