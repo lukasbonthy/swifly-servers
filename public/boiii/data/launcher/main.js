@@ -2692,7 +2692,7 @@ function setupPathBtn(btnId, pathDisplayIds) {
           showMessage(
               'Game Path Updated',
               'Game path set to:\n' + result +
-                  '\n\nRestart Swifly for the change to take full effect.');
+                  '\n\nRestart BOIII for the change to take full effect.');
         } catch (e) {
           clearInterval(poll);
           btn.disabled = false;
@@ -2782,7 +2782,7 @@ var ASSET_POOL_DEFAULTS = {
 function loadAllSettings() {
   var settings = {};
   try {
-    var stored = localStorage.getItem('swifly_settings');
+    var stored = localStorage.getItem('boiii_settings');
     if (stored)
       settings = JSON.parse(stored);
   } catch (e) {
@@ -2796,7 +2796,7 @@ function loadAllSettings() {
 
 function saveAllSettings(settings) {
   try {
-    localStorage.setItem('swifly_settings', JSON.stringify(settings));
+    localStorage.setItem('boiii_settings', JSON.stringify(settings));
   } catch (e) {
   }
 }
@@ -3286,7 +3286,7 @@ if (resetBtn) {
           } catch (e) {
           }
           try {
-            localStorage.removeItem('swifly_settings');
+            localStorage.removeItem('boiii_settings');
           } catch (e) {
           }
           for (var k in SETTINGS_DEFAULTS) {
@@ -3550,7 +3550,7 @@ function fetchReleases() {
   if (!versionOptions)
     return;
 
-  var url = 'https://api.github.com/repos/Swifly-lol/swifly-free/releases';
+  var url = 'https://api.github.com/repos/Ezz-lol/boiii-free/releases';
   var xhr = new XMLHttpRequest();
   xhr.open('GET', url, true);
   xhr.onreadystatechange = function() {
@@ -3565,17 +3565,17 @@ function fetchReleases() {
             var rel = releases[i];
             var tagName = rel.tag_name;
             var assets = rel.assets || [];
-            var swiflyAsset = null;
+            var boiiiAsset = null;
             for (var j = 0; j < assets.length; j++) {
-              if (assets[j].name === 'swifly.exe') {
-                swiflyAsset = assets[j];
+              if (assets[j].name === 'boiii.exe') {
+                boiiiAsset = assets[j];
                 break;
               }
             }
-            if (swiflyAsset) {
+            if (boiiiAsset) {
               _versionsData[tagName] = {
-                url : swiflyAsset.browser_download_url,
-                name : 'swifly-' + tagName + '.exe'
+                url : boiiiAsset.browser_download_url,
+                name : 'boiii-' + tagName + '.exe'
               };
               addVersionOption(tagName, tagName);
             }
@@ -3595,8 +3595,8 @@ fetchReleases();
 
 // Beta build - placeholder URL (update when R2 bucket is configured)
 _versionsData['beta'] = {
-  url : 'https://cdn.swifly.lol/swifly/beta/swifly.exe',
-  name : 'swifly-beta.exe'
+  url : 'https://cdn.ezz.lol/boiii/beta/boiii.exe',
+  name : 'boiii-beta.exe'
 };
 addVersionOption('beta', 'Beta (Experimental)');
 })();
