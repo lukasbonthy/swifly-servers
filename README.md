@@ -50,3 +50,18 @@ The importer is intentionally strict. It only returns non-passworded Team Deathm
 If Gameserve.rs changes its HTML/API layout, check `/api/status` to see raw/accepted/rejected counts and the latest import error.
 
 The `/host` page also creates Swifly Team Deathmatch server kits. Those kits are base-map TDM only.
+
+
+## Import troubleshooting
+
+This version tries the Gameserve HTML page first, then common API routes, then discovers API URLs from script bundles when possible.
+
+If `/api/status` still shows `rawCount: 0`, open:
+
+```text
+/api/debug/import
+```
+
+with the `x-admin-key` header to see attempted URLs, discovered URLs, and notes.
+
+You can also seed known servers without a database by adding `data/seed_servers.json` or setting `STATIC_TDM_SERVERS_JSON` to a JSON array of server objects. The same filters still apply: multiplayer, `tdm`, non-passworded, base-map only.

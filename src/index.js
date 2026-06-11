@@ -37,6 +37,9 @@ let gameserveCache = {
   acceptedCount: 0,
   rejectedCount: 0,
   lastError: null,
+  attemptedUrls: [],
+  discoveredUrls: [],
+  notes: []
 };
 
 function normalize(value) {
@@ -271,6 +274,18 @@ function parseTableRowsFromHtml(html) {
   return objects;
 }
 
+function absoluteUrl(base, maybeUrl) {
+  try {
+    return new URL(maybeUrl, base).toString();
+  } catch {
+    return '';
+  }
+}
+
+function uniquePush(array, value) {
+  if (value && !array.includes(value)) array.push(value);
+}
+
 async function fetchText(url) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -278,22 +293,131 @@ async function fetchText(url) {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'accept': 'text/html,application/json',
-        'user-agent': 'SwiflyServerRegistry/0.3 (+https://swifly-servers.onrender.com)'
+        'accept': 'text/html,application/json,text/plain,*/*',
+        'user-agent': 'Mozilla/5.0 (compatible; SwiflyServerRegistry/0.4; +https://swifly-servers.onrender.com)'
       }
     });
+    const text = await response.text();
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    return await response.text();
+    return { url, text, contentType: response.headers.get('content-type') || '', status: response.status };
   } finally {
     clearTimeout(timeout);
   }
 }
 
+function extractCandidateUrlsFromText(text, baseUrl) {
+  const candidates = [];
+  const patterns = [
+    /["'`](\/api\/[a-zA-Z0-9_?=&.\/-]+)["'`]/g,
+    /["'`](\/servers(?:\.json)?[a-zA-Z0-9_?=&.\/-]*)["'`]/g,
+    /["'`](https:\/\/gameserve\.rs\/[a-zA-Z0-9_?=&.\/-]+)["'`]/g,
+    /fetch\(\s*["'`]([^"'`]+)["'`]/g,
+    /axios\.get\(\s*["'`]([^"'`]+)["'`]/g
+  ];
+
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const url = absoluteUrl(baseUrl, match[1]);
+      if (/game=t7|t7|servers|api/i.test(url)) uniquePush(candidates, url);
+    }
+  }
+
+  return candidates;
+}
+
+function extractScriptUrls(html, baseUrl) {
+  const $ = cheerio.load(html);
+  const scripts = [];
+  $('script[src]').each((_, el) => {
+    const src = $(el).attr('src');
+    const url = absoluteUrl(baseUrl, src);
+    if (url) uniquePush(scripts, url);
+  });
+  return scripts;
+}
+
+async function parseServersFromUrl(url, state, depth = 0) {
+  const out = [];
+  const fetched = await fetchText(url);
+  state.attemptedUrls.push({ url, status: fetched.status, contentType: fetched.contentType, bytes: fetched.text.length });
+
+  const text = fetched.text;
+  if (/^\s*[\[{]/.test(text)) {
+    try {
+      collectServerObjects(JSON.parse(text), out);
+    } catch (error) {
+      state.notes.push(`${url}: JSON parse failed: ${error.message}`);
+    }
+  }
+
+  out.push(...parseJsonFromHtml(text));
+  out.push(...parseTableRowsFromHtml(text));
+
+  if (depth < 1 && out.length === 0 && /<html|<script/i.test(text)) {
+    const candidates = [];
+    for (const script of extractScriptUrls(text, url).slice(0, 12)) {
+      uniquePush(candidates, script);
+    }
+    for (const discovered of extractCandidateUrlsFromText(text, url).slice(0, 20)) {
+      uniquePush(candidates, discovered);
+    }
+
+    for (const candidate of candidates) uniquePush(state.discoveredUrls, candidate);
+
+    // First fetch JS chunks to discover real API URLs. Some sites put endpoint names
+    // in bundled scripts instead of the HTML itself.
+    for (const candidate of candidates.slice(0, 12)) {
+      if (!/\.js(\?|$)|\/static\//i.test(candidate)) continue;
+      try {
+        const js = await fetchText(candidate);
+        state.attemptedUrls.push({ url: candidate, status: js.status, contentType: js.contentType, bytes: js.text.length, kind: 'script' });
+        for (const endpoint of extractCandidateUrlsFromText(js.text, candidate).slice(0, 20)) {
+          uniquePush(state.discoveredUrls, endpoint);
+        }
+      } catch (error) {
+        state.notes.push(`${candidate}: ${error.message}`);
+      }
+    }
+
+    // Then try discovered non-JS API-ish endpoints.
+    for (const candidate of state.discoveredUrls.slice(0, 30)) {
+      if (/\.js(\?|$)|\/static\//i.test(candidate)) continue;
+      try {
+        const nested = await parseServersFromUrl(candidate, state, depth + 1);
+        out.push(...nested);
+        if (out.length > 0) break;
+      } catch (error) {
+        state.notes.push(`${candidate}: ${error.message}`);
+      }
+    }
+  }
+
+  return out;
+}
+
+function loadStaticSeedServers() {
+  const envJson = process.env.STATIC_TDM_SERVERS_JSON || '';
+  const seedPath = process.env.STATIC_TDM_SERVERS_FILE || path.join(__dirname, '..', 'data', 'seed_servers.json');
+  const objects = [];
+  if (envJson.trim()) {
+    try { collectServerObjects(JSON.parse(envJson), objects); } catch {}
+  }
+  if (fs.existsSync(seedPath)) {
+    try { collectServerObjects(JSON.parse(fs.readFileSync(seedPath, 'utf8')), objects); } catch {}
+  }
+  return objects;
+}
+
 async function refreshGameserveServers() {
+  const state = { attemptedUrls: [], discoveredUrls: [], notes: [] };
   const urls = [
     GAMESERVERS_URL,
     'https://gameserve.rs/api/servers?game=t7',
     'https://gameserve.rs/api/servers/t7',
+    'https://gameserve.rs/api/games/t7/servers',
+    'https://gameserve.rs/api/serverlist?game=t7',
+    'https://gameserve.rs/servers?game=t7&format=json',
     'https://gameserve.rs/servers.json?game=t7'
   ];
 
@@ -301,20 +425,16 @@ async function refreshGameserveServers() {
   const rawObjects = [];
   for (const url of urls) {
     try {
-      const text = await fetchText(url);
-      const contentTypeLooksJson = /^\s*[\[{]/.test(text);
-      if (contentTypeLooksJson) {
-        try {
-          collectServerObjects(JSON.parse(text), rawObjects);
-        } catch {}
-      }
-      rawObjects.push(...parseJsonFromHtml(text));
-      rawObjects.push(...parseTableRowsFromHtml(text));
+      const parsed = await parseServersFromUrl(url, state, 0);
+      rawObjects.push(...parsed);
       if (rawObjects.length > 0) break;
     } catch (error) {
       lastError = `${url}: ${error.message}`;
+      state.notes.push(lastError);
     }
   }
+
+  rawObjects.push(...loadStaticSeedServers());
 
   const seen = new Set();
   const accepted = [];
@@ -335,6 +455,9 @@ async function refreshGameserveServers() {
     acceptedCount: accepted.length,
     rejectedCount: Math.max(0, normalized.length - accepted.length),
     lastError: accepted.length ? null : lastError,
+    attemptedUrls: state.attemptedUrls,
+    discoveredUrls: state.discoveredUrls.slice(0, 50),
+    notes: state.notes.slice(-30)
   };
 
   return gameserveCache;
@@ -489,6 +612,18 @@ app.get('/api/status', async (req, res) => {
       dlc: 'excluded',
       source: GAMESERVERS_URL
     }
+  });
+});
+
+
+app.get('/api/debug/import', requireAdmin, async (req, res) => {
+  res.json({
+    attemptedUrls: gameserveCache.attemptedUrls || [],
+    discoveredUrls: gameserveCache.discoveredUrls || [],
+    notes: gameserveCache.notes || [],
+    rawCount: gameserveCache.rawCount,
+    acceptedCount: gameserveCache.acceptedCount,
+    lastError: gameserveCache.lastError
   });
 });
 

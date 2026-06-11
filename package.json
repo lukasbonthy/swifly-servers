@@ -1,6 +1,6 @@
 {
   "name": "swifly-server-registry-gameservers",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Swifly server list proxy for Gameserve.rs T7 Team Deathmatch base-map servers.",
   "main": "src/index.js",
