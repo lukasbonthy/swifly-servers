@@ -1,8 +1,8 @@
 {
-  "name": "swifly-server-registry-nodb",
-  "version": "0.3.0",
+  "name": "swifly-server-registry-oneclick",
+  "version": "0.4.0",
   "private": true,
-  "description": "Database-free Swifly server registry for Render.",
+  "description": "One-click no-database Swifly server registry for Render.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -12,11 +12,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "cors": "^2.8.5",
     "express": "^4.19.2",
-    "helmet": "^7.1.0",
-    "jszip": "^3.10.1",
-    "morgan": "^1.10.0",
-    "zod": "^3.23.8"
+    "jszip": "^3.10.1"
   }
 }

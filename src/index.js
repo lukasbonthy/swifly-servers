@@ -1,40 +1,13 @@
 const crypto = require('crypto');
 const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
 const JSZip = require('jszip');
-const { z } = require('zod');
 
 const PORT = Number(process.env.PORT || 3000);
-const APP_SECRET = process.env.APP_SECRET || process.env.ADMIN_API_KEY || 'dev-only-change-me';
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
+const APP_SECRET = process.env.APP_SECRET || 'dev-only-change-me';
 const HEARTBEAT_TTL_SECONDS = Number(process.env.HEARTBEAT_TTL_SECONDS || 180);
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
-const ALLOW_PUBLIC_SUBMISSIONS = (process.env.ALLOW_PUBLIC_SUBMISSIONS || 'true') === 'true';
-const AUTO_VERIFY_PUBLIC_SUBMISSIONS = (process.env.AUTO_VERIFY_PUBLIC_SUBMISSIONS || 'true') === 'true';
 
 const activeServers = new Map();
-
-const serverSchema = z.object({
-  name: z.string().trim().min(3).max(64),
-  mode: z.enum(['mp', 'zm', 'cp']).default('zm'),
-  map: z.string().trim().min(1).max(64).default('zm_zod'),
-  gametype: z.string().trim().max(64).default(''),
-  region: z.string().trim().max(32).default(''),
-  description: z.string().trim().max(256).default(''),
-  address: z.string().trim().max(128).optional(),
-  port: z.number().int().min(1).max(65535).default(27017),
-  players: z.number().int().min(0).max(64).default(0),
-  maxPlayers: z.number().int().min(1).max(64).default(8),
-  passworded: z.boolean().default(false),
-  hidden: z.boolean().default(false),
-  verified: z.boolean().default(true),
-});
-
-const heartbeatSchema = serverSchema.partial().extend({
-  version: z.string().trim().max(64).optional(),
-});
 
 function base64urlJson(value) {
   return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
@@ -63,22 +36,7 @@ function verify(token) {
   }
 }
 
-function bearerToken(req) {
-  const header = req.header('authorization') || '';
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1] : '';
-}
-
-function clientIp(req) {
-  const forwarded = req.header('x-forwarded-for');
-  return forwarded ? forwarded.split(',')[0].trim() : (req.socket.remoteAddress || '');
-}
-
-function baseUrl(req) {
-  return PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
-}
-
-function escapeHtml(value) {
+function html(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -87,27 +45,41 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-function requireAdmin(req, res, next) {
-  if (!ADMIN_API_KEY) return res.status(500).json({ error: 'ADMIN_API_KEY is not configured' });
-  if ((req.header('x-admin-key') || '') !== ADMIN_API_KEY) return res.status(401).json({ error: 'invalid admin key' });
-  next();
+function baseUrl(req) {
+  return PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
 }
 
-function formToServerPayload(body, options = {}) {
-  return serverSchema.parse({
-    name: body.name,
-    mode: body.mode || 'zm',
-    map: body.map || 'zm_zod',
-    gametype: body.gametype || '',
-    region: body.region || '',
-    description: body.description || '',
-    port: Number(body.port || 27017),
-    maxPlayers: Number(body.maxPlayers || 8),
-    passworded: body.passworded === 'on' || body.passworded === 'true',
+function clientIp(req) {
+  const forwarded = req.header('x-forwarded-for');
+  return forwarded ? forwarded.split(',')[0].trim() : (req.socket.remoteAddress || '');
+}
+
+function cleanString(value, fallback, max = 64) {
+  const result = String(value || fallback || '').trim().slice(0, max);
+  return result || fallback;
+}
+
+function toInt(value, fallback, min, max) {
+  const n = Number.parseInt(value, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
+function serverFromForm(body) {
+  const mode = ['zm', 'mp', 'cp'].includes(body.mode) ? body.mode : 'zm';
+  return {
+    id: crypto.randomUUID(),
+    name: cleanString(body.name, 'Swifly Server', 64),
+    mode,
+    map: cleanString(body.map, mode === 'mp' ? 'mp_hunted' : 'zm_zod', 64),
+    region: cleanString(body.region, '', 32),
+    description: cleanString(body.description, '', 256),
+    port: toInt(body.port, 27017, 1, 65535),
     players: 0,
-    verified: options.verified ?? true,
-    hidden: options.hidden ?? false,
-  });
+    maxPlayers: toInt(body.maxPlayers, 8, 1, 64),
+    passworded: body.passworded === 'on' || body.passworded === 'true',
+    issuedAt: Date.now(),
+  };
 }
 
 function publicServer(server) {
@@ -118,7 +90,6 @@ function publicServer(server) {
     port: server.port,
     mode: server.mode,
     map: server.map,
-    gametype: server.gametype || '',
     region: server.region || '',
     description: server.description || '',
     players: server.players || 0,
@@ -139,167 +110,126 @@ function pruneExpired() {
 function serverCfg(server) {
   const name = String(server.name || 'Swifly Server').replaceAll('"', "'");
   const map = String(server.map || 'zm_zod').replace(/[^a-zA-Z0-9_]/g, '');
-  const maxPlayers = Number(server.maxPlayers || 8);
-  const port = Number(server.port || 27017);
   return [
     '// Generated by Swifly Server Registry',
     `set sv_hostname "${name}"`,
     `set live_steam_server_name "${name}"`,
-    `set sv_maxclients "${maxPlayers}"`,
-    `set net_port "${port}"`,
+    `set sv_maxclients "${server.maxPlayers || 8}"`,
+    `set net_port "${server.port || 27017}"`,
     'set g_password ""',
     `set sv_maprotation "map ${map}"`,
     '',
   ].join('\r\n');
 }
 
-function heartbeatScript(apiUrl, token, server) {
-  const safeApi = apiUrl.replaceAll('`', '');
-  const safeToken = String(token).replaceAll('`', '');
-  const mode = String(server.mode || 'zm').replaceAll('`', '');
-  const map = String(server.map || 'zm_zod').replaceAll('`', '');
-  const port = Number(server.port || 27017);
-  const maxPlayers = Number(server.maxPlayers || 8);
+function heartbeatPs1(api, token, server) {
+  const payload = {
+    api,
+    token,
+    port: server.port,
+    mode: server.mode,
+    map: server.map,
+    maxPlayers: server.maxPlayers,
+  };
 
-  return `$ErrorActionPreference = "Stop"\r\n\r\n$Api = "${safeApi}"\r\n$Token = "${safeToken}"\r\n\r\nWrite-Host "Swifly heartbeat started."\r\nWrite-Host "Keep this window open while your server is running."\r\n\r\nwhile ($true) {\r\n  try {\r\n    $Body = @{\r\n      port = ${port}\r\n      mode = "${mode}"\r\n      map = "${map}"\r\n      players = 0\r\n      maxPlayers = ${maxPlayers}\r\n      version = "swifly-server-kit-0.3.0"\r\n    } | ConvertTo-Json\r\n\r\n    Invoke-RestMethod -Method Post -Uri "$Api/api/heartbeat" -Headers @{ Authorization = "Bearer $Token" } -ContentType "application/json" -Body $Body | Out-Null\r\n    Write-Host "Heartbeat OK $(Get-Date)"\r\n  } catch {\r\n    Write-Warning "Heartbeat failed: $($_.Exception.Message)"\r\n  }\r\n\r\n  Start-Sleep -Seconds 30\r\n}\r\n`;
+  return `$ErrorActionPreference = "Continue"\r\n\r\n$Config = @'\r\n${JSON.stringify(payload, null, 2)}\r\n'@ | ConvertFrom-Json\r\n\r\nWrite-Host "Swifly heartbeat running. Do not close this window."\r\n\r\nwhile ($true) {\r\n  try {\r\n    $Body = @{\r\n      port = [int]$Config.port\r\n      mode = [string]$Config.mode\r\n      map = [string]$Config.map\r\n      players = 0\r\n      maxPlayers = [int]$Config.maxPlayers\r\n      version = "swifly-oneclick-0.4.0"\r\n    } | ConvertTo-Json\r\n\r\n    Invoke-RestMethod -Method Post -Uri "$($Config.api)/api/heartbeat" -Headers @{ Authorization = "Bearer $($Config.token)" } -ContentType "application/json" -Body $Body | Out-Null\r\n    Write-Host "[$(Get-Date -Format T)] Listed on Swifly."\r\n  } catch {\r\n    Write-Warning "Heartbeat failed: $($_.Exception.Message)"\r\n  }\r\n\r\n  Start-Sleep -Seconds 30\r\n}\r\n`;
 }
 
-async function makeServerKitZip(req, token, server) {
-  const apiUrl = baseUrl(req);
+function startBat(server) {
+  const cfg = server.mode === 'mp' ? 'server_mp.cfg' : 'server_zm.cfg';
+  return `@echo off\r\nsetlocal\r\ntitle Swifly Server Launcher\r\ncd /d "%~dp0"\r\n\r\necho ========================================\r\necho        Swifly Server One-Click Kit\r\necho ========================================\r\necho.\r\necho Starting Swifly heartbeat...\r\nstart "Swifly Heartbeat" powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0heartbeat.ps1"\r\n\r\necho Starting server if a known executable exists...\r\nset SERVER_EXE=\r\nif exist "%~dp0swiflyboiii.exe" set SERVER_EXE=%~dp0swiflyboiii.exe\r\nif "%SERVER_EXE%"=="" if exist "%~dp0t7x.exe" set SERVER_EXE=%~dp0t7x.exe\r\nif "%SERVER_EXE%"=="" if exist "%~dp0BlackOps3_UnrankedDedicatedServer.exe" set SERVER_EXE=%~dp0BlackOps3_UnrankedDedicatedServer.exe\r\n\r\nif "%SERVER_EXE%"=="" (\r\n  echo Could not find swiflyboiii.exe, t7x.exe, or BlackOps3_UnrankedDedicatedServer.exe.\r\n  echo Put this kit in your server folder, then run this file again.\r\n  echo The heartbeat is still running if you started it.\r\n  pause\r\n  exit /b 1\r\n)\r\n\r\necho Found: %SERVER_EXE%\r\nstart "Swifly Game Server" "%SERVER_EXE%" -dedicated +set net_port ${server.port || 27017} +set logfile 2 +exec ${cfg}\r\n\r\necho.\r\necho Done. Keep the heartbeat window open.\r\npause\r\n`;
+}
+
+async function buildKit(req, server, token) {
+  const api = baseUrl(req);
   const zip = new JSZip();
-  zip.file('README.txt', [
-    'Swifly Server Kit',
+  zip.file('START_SWIFLY_SERVER.bat', startBat(server));
+  zip.file('heartbeat.ps1', heartbeatPs1(api, token, server));
+  zip.file('server_zm.cfg', serverCfg({ ...server, mode: 'zm' }));
+  zip.file('server_mp.cfg', serverCfg({ ...server, mode: 'mp' }));
+  zip.file('swifly_server.json', JSON.stringify({ api, token, ...server }, null, 2));
+  zip.file('README_FIRST.txt', [
+    'Swifly One-Click Server Kit',
     '',
-    '1. Install BO3 / the unranked dedicated server legally.',
-    '2. Put this kit in the same folder as your server files/configs.',
-    '3. Use server_zm.cfg or server_mp.cfg as a starting point.',
-    '4. Run Start-Heartbeat.bat while your server is online.',
-    '5. Your server appears in Swifly after a successful heartbeat.',
+    '1. Extract this ZIP into your BO3/Swifly dedicated server folder.',
+    '2. Make sure swiflyboiii.exe, t7x.exe, or BlackOps3_UnrankedDedicatedServer.exe is in that folder.',
+    '3. Double-click START_SWIFLY_SERVER.bat.',
+    '4. Keep the heartbeat window open.',
+    '5. Your server appears at:',
+    `   ${api}/api/servers`,
     '',
     'This kit does not include BO3 game files or executables.',
   ].join('\r\n'));
-  zip.file('swifly_server.json', JSON.stringify({ token, api: apiUrl, mode: server.mode, map: server.map, port: server.port }, null, 2));
-  zip.file('heartbeat.ps1', heartbeatScript(apiUrl, token, server));
-  zip.file('Start-Heartbeat.bat', '@echo off\r\npowershell -ExecutionPolicy Bypass -File "%~dp0heartbeat.ps1"\r\npause\r\n');
-  zip.file('server_zm.cfg', serverCfg(server));
-  zip.file('server_mp.cfg', serverCfg({ ...server, mode: 'mp' }));
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
-function makeServerAndToken(payload) {
-  const id = crypto.randomUUID();
-  const issuedAt = Date.now();
-  const tokenPayload = {
-    id,
-    issuedAt,
-    server: payload,
-  };
-  return {
-    server: { id, ...payload, tokenIssuedAt: issuedAt },
-    token: sign(tokenPayload),
-  };
-}
-
-function tokenToServer(token) {
-  const verified = verify(token);
-  if (!verified || !verified.id || !verified.server) return null;
-  return { id: verified.id, ...verified.server };
+function page(title, body) {
+  return `<!doctype html><html><head><title>${html(title)}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui;background:#080a10;color:white;max-width:900px;margin:36px auto;padding:0 18px}.card{background:#141924;border:1px solid #293246;border-radius:18px;padding:24px;margin:18px 0}a{color:#8ab4ff}input,select,textarea{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #34405c;background:#0d111b;color:white;margin:6px 0 14px}button{background:#ff7a1a;color:white;border:0;border-radius:14px;padding:14px 18px;font-weight:800;font-size:16px;cursor:pointer}.steps{display:grid;gap:12px}.step{background:#0d111b;border-radius:14px;padding:14px}small{color:#aab4cc}pre{background:#0d111b;border-radius:12px;padding:14px;overflow:auto}</style></head><body>${body}</body></html>`;
 }
 
 const app = express();
 app.set('trust proxy', true);
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors());
-app.use(express.json({ limit: '64kb' }));
 app.use(express.urlencoded({ extended: false }));
-app.use(morgan('tiny'));
+app.use(express.json({ limit: '64kb' }));
 
-app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'swifly-server-registry-nodb', activeServers: activeServers.size });
-});
+app.get('/health', (_req, res) => res.json({ ok: true, activeServers: activeServers.size }));
 
-app.get('/', (_req, res) => {
-  res.type('html').send(`<!doctype html><html><head><title>Swifly Server Registry</title><style>body{font-family:system-ui;background:#0d0f16;color:#fff;max-width:900px;margin:40px auto;padding:0 20px}a{color:#8ab4ff}.card{background:#171b27;border:1px solid #2a3144;border-radius:16px;padding:22px;margin:18px 0}code{background:#0b0d13;padding:2px 6px;border-radius:6px}</style></head><body><h1>Swifly Server Registry</h1><div class="card"><p>Create a Swifly server entry, download its Server Kit, run the heartbeat, and your server appears in the Swifly-only list.</p><p><a href="/host">Create a server</a> · <a href="/api/servers">View public API list</a></p></div><div class="card"><p><strong>No database mode:</strong> the list is rebuilt from active server heartbeats. If the service restarts, running heartbeats re-add servers automatically.</p></div></body></html>`);
+app.get('/', (req, res) => {
+  res.type('html').send(page('Swifly Servers', `<h1>Swifly Server Hosting</h1><div class="card"><div class="steps"><div class="step"><strong>1.</strong> Create your server kit.</div><div class="step"><strong>2.</strong> Extract it into your server folder.</div><div class="step"><strong>3.</strong> Double-click <code>START_SWIFLY_SERVER.bat</code>.</div></div><p><a href="/host"><button>Create Server Kit</button></a></p><p><a href="/api/servers">View live Swifly server list</a></p></div>`));
 });
 
 app.get('/host', (_req, res) => {
-  res.type('html').send(`<!doctype html><html><head><title>Create Swifly Server</title><style>body{font-family:system-ui;background:#0d0f16;color:#fff;max-width:760px;margin:40px auto;padding:0 20px}label{display:block;margin:14px 0 6px}input,select,textarea{width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #333;background:#111722;color:#fff}button{margin-top:18px;padding:12px 18px;border:0;border-radius:12px;background:#f47b20;color:#fff;font-weight:700}.card{background:#171b27;border:1px solid #2a3144;border-radius:16px;padding:22px}</style></head><body><h1>Create a Swifly Server</h1><div class="card"><form method="post" action="/host"><label>Server name</label><input name="name" placeholder="Swifly Zombies #1" required minlength="3" maxlength="64"><label>Mode</label><select name="mode"><option value="zm">Zombies</option><option value="mp">Multiplayer</option><option value="cp">Campaign</option></select><label>Map</label><input name="map" value="zm_zod" required><label>Region</label><input name="region" placeholder="NA / EU / AU"><label>Port</label><input name="port" type="number" min="1" max="65535" value="27017"><label>Max players</label><input name="maxPlayers" type="number" min="1" max="64" value="8"><label>Description</label><textarea name="description" maxlength="256" rows="4"></textarea><label><input style="width:auto" type="checkbox" name="passworded"> Passworded</label><button type="submit">Create Server + Download Kit</button></form></div></body></html>`);
+  res.type('html').send(page('Create Server Kit', `<h1>Create Server Kit</h1><div class="card"><form method="post" action="/kit.zip"><label>Server name</label><input name="name" required minlength="3" maxlength="64" placeholder="Swifly Zombies #1"><label>Mode</label><select name="mode"><option value="zm">Zombies</option><option value="mp">Multiplayer</option><option value="cp">Campaign</option></select><label>Map</label><input name="map" value="zm_zod" required><details><summary>Advanced options</summary><label>Port</label><input name="port" type="number" min="1" max="65535" value="27017"><label>Max players</label><input name="maxPlayers" type="number" min="1" max="64" value="8"><label>Region</label><input name="region" placeholder="NA / EU / AU"><label>Description</label><textarea name="description" rows="3" maxlength="256"></textarea><label><input style="width:auto" type="checkbox" name="passworded"> Passworded</label></details><button type="submit">Download Server Kit</button></form></div><p><a href="/">Back</a></p>`));
 });
 
-app.post('/host', async (req, res, next) => {
+app.post('/kit.zip', async (req, res, next) => {
   try {
-    if (!ALLOW_PUBLIC_SUBMISSIONS) return res.status(403).send('Public server submissions are disabled.');
-    const payload = formToServerPayload(req.body || {}, { verified: AUTO_VERIFY_PUBLIC_SUBMISSIONS, hidden: false });
-    const { server, token } = makeServerAndToken(payload);
-    const kitUrl = `/api/server-kit.zip?token=${encodeURIComponent(token)}`;
-    res.type('html').send(`<!doctype html><html><head><title>Server Created</title><style>body{font-family:system-ui;background:#0d0f16;color:#fff;max-width:840px;margin:40px auto;padding:0 20px}a{color:#8ab4ff}.card{background:#171b27;border:1px solid #2a3144;border-radius:16px;padding:22px;margin:18px 0}pre{background:#0b0d13;border-radius:10px;padding:12px;display:block;overflow:auto}</style></head><body><h1>Server created</h1><div class="card"><p><strong>${escapeHtml(server.name)}</strong> is ready.</p><p>Download this kit and keep the link/token private:</p><p><a href="${escapeHtml(kitUrl)}">Download Swifly Server Kit</a></p><p>Server ID:</p><pre>${escapeHtml(server.id)}</pre><p>Public API list:</p><pre>${escapeHtml(baseUrl(req))}/api/servers</pre><p>The server appears only after heartbeat.ps1 starts.</p></div><p><a href="/host">Create another server</a></p></body></html>`);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get('/api/server-kit.zip', async (req, res, next) => {
-  try {
-    const token = String(req.query.token || '');
-    const server = tokenToServer(token);
-    if (!server) return res.status(404).json({ error: 'invalid token' });
-    const zip = await makeServerKitZip(req, token, server);
+    const server = serverFromForm(req.body || {});
+    const token = sign({ id: server.id, server, issuedAt: Date.now() });
+    const zip = await buildKit(req, server, token);
     res.setHeader('content-type', 'application/zip');
-    res.setHeader('content-disposition', `attachment; filename="swifly-server-${server.id}.zip"`);
+    res.setHeader('content-disposition', `attachment; filename="swifly-server-kit-${server.id}.zip"`);
     res.send(zip);
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 });
 
-app.post('/api/heartbeat', async (req, res, next) => {
-  try {
-    const token = bearerToken(req);
-    const serverFromToken = tokenToServer(token);
-    if (!serverFromToken) return res.status(401).json({ error: 'invalid token' });
+app.post('/api/heartbeat', (req, res) => {
+  const header = req.header('authorization') || '';
+  const token = header.match(/^Bearer\s+(.+)$/i)?.[1];
+  const verified = verify(token);
+  if (!verified?.server?.id) return res.status(401).json({ error: 'invalid token' });
 
-    const body = heartbeatSchema.parse(req.body || {});
-    const now = Date.now();
-    const server = {
-      ...serverFromToken,
-      ...body,
-      address: body.address || clientIp(req),
-      lastHeartbeatMs: now,
-      lastHeartbeatAt: new Date(now).toISOString(),
-    };
-
-    activeServers.set(server.id, server);
-    pruneExpired();
-
-    res.json({ ok: true, server: publicServer(server) });
-  } catch (error) {
-    next(error);
-  }
+  const now = Date.now();
+  const update = req.body || {};
+  const server = {
+    ...verified.server,
+    ...update,
+    id: verified.server.id,
+    address: update.address || clientIp(req),
+    lastHeartbeatMs: now,
+    lastHeartbeatAt: new Date(now).toISOString(),
+  };
+  activeServers.set(server.id, server);
+  pruneExpired();
+  res.json({ ok: true, server: publicServer(server) });
 });
 
 app.get('/api/servers', (_req, res) => {
   pruneExpired();
-  const servers = [...activeServers.values()]
-    .filter((server) => server.verified !== false && server.hidden !== true && server.address)
-    .sort((a, b) => (b.players || 0) - (a.players || 0) || (b.lastHeartbeatMs || 0) - (a.lastHeartbeatMs || 0))
-    .map(publicServer);
-  res.json(servers);
+  res.json([...activeServers.values()].sort((a, b) => (b.lastHeartbeatMs || 0) - (a.lastHeartbeatMs || 0)).map(publicServer));
 });
 
-app.get('/api/admin/servers', requireAdmin, (_req, res) => {
+app.get('/servers', (_req, res) => {
   pruneExpired();
-  res.json([...activeServers.values()].map(publicServer));
+  const rows = [...activeServers.values()].map((s) => `<tr><td>${html(s.name)}</td><td>${html(s.mode)}</td><td>${html(s.map)}</td><td>${html(s.address)}:${html(s.port)}</td><td>${html(s.players || 0)}/${html(s.maxPlayers || 8)}</td></tr>`).join('');
+  res.type('html').send(page('Live Servers', `<h1>Live Swifly Servers</h1><div class="card"><table width="100%"><tr><th align="left">Name</th><th align="left">Mode</th><th align="left">Map</th><th align="left">Address</th><th align="left">Players</th></tr>${rows || '<tr><td colspan="5">No servers online yet.</td></tr>'}</table></div><p><a href="/host">Create Server Kit</a></p>`));
 });
 
-app.delete('/api/admin/servers/:id', requireAdmin, (req, res) => {
-  activeServers.delete(req.params.id);
-  res.status(204).end();
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).send('Server error');
 });
 
-app.use((error, _req, res, _next) => {
-  if (error instanceof z.ZodError) return res.status(400).json({ error: 'validation failed', details: error.errors });
-  console.error(error);
-  res.status(500).json({ error: 'internal server error' });
-});
-
-app.listen(PORT, () => console.log(`Swifly no-db registry listening on ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`Swifly one-click registry running on ${PORT}`));

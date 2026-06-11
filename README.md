@@ -1,64 +1,52 @@
-# Swifly Server Registry (No Database)
+# Swifly Server Registry — One-Click / No Database
 
-This is a database-free Node.js website/API for Swifly server listings.
+This is the easiest test version of the Swifly server-list website.
 
-## How it works
+## What the host does
 
-- A host visits `/host`.
-- They create a server entry.
-- The website generates a signed token and a Server Kit ZIP.
-- The host runs the included heartbeat script.
-- The website stores active servers in memory.
-- `GET /api/servers` returns only servers that are actively heartbeating.
+1. Visit `/host`.
+2. Fill out the tiny form.
+3. Click **Download Server Kit**.
+4. Extract the ZIP into their BO3/Swifly server folder.
+5. Double-click `START_SWIFLY_SERVER.bat`.
+6. Their server appears in `/api/servers` after the heartbeat succeeds.
 
-Because there is no database, server listings are not permanently stored. That is intentional:
-if Render restarts, the in-memory list clears, then running heartbeat scripts re-add servers automatically.
+## Render deploy
 
-## Render setup
+Create a new GitHub repo, upload these files, then create a Render Node.js Web Service.
 
-1. Create a new GitHub repo.
-2. Extract this ZIP into that repo.
-3. Push to GitHub.
-4. In Render, create a new **Web Service** or **Blueprint** from the repo.
-5. Build command:
+Build command:
 
 ```bash
 npm install
 ```
 
-6. Start command:
+Start command:
 
 ```bash
 npm start
 ```
 
-7. Environment variables:
+Environment variables are optional for testing, but recommended:
 
 ```text
-APP_SECRET=<long random secret>
-ADMIN_API_KEY=<long random admin secret>
+APP_SECRET=<long random string>
 HEARTBEAT_TTL_SECONDS=180
-ALLOW_PUBLIC_SUBMISSIONS=true
-AUTO_VERIFY_PUBLIC_SUBMISSIONS=true
 PUBLIC_BASE_URL=https://your-app.onrender.com
 ```
 
-## Pages
+## Public client endpoint
 
-- `/` home
-- `/host` create a server + download a kit
-- `/api/servers` public Swifly-only JSON list
-- `/api/admin/servers` active server list, requires `x-admin-key`
-- `/health` health check
+```text
+GET /api/servers
+```
 
-## User flow
+The Swifly client should read this endpoint and show only these servers.
 
-1. Host creates server at `/host`.
-2. Host downloads `swifly-server-kit.zip`.
-3. Host extracts it into their server folder.
-4. Host runs `Start-Heartbeat.bat`.
-5. Once heartbeating, the server appears in `/api/servers`.
+## No database behavior
+
+This version stores only actively heartbeating servers in memory. If Render restarts or the service sleeps, the list clears, but any running `heartbeat.ps1` will automatically re-add the server on its next heartbeat.
 
 ## Important
 
-This does not include BO3 game files or executables. Hosts still need to install BO3 / the unranked dedicated server legitimately.
+This website does not include BO3 game files or executables. Hosts must use their own legally installed BO3/Unranked Dedicated Server files.
