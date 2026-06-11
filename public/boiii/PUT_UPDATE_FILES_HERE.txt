@@ -1,0 +1,5 @@
+# Put your update files here.
+# Example layout:
+# public/boiii/swiflyboiii.exe
+# public/boiii/ext.dll
+# public/boiii/data/launcher/main.html

@@ -1,22 +1,20 @@
 {
-  "name": "swifly-server-registry-gameservers",
-  "version": "0.4.0",
+  "name": "swifly-manifest-site",
+  "version": "1.0.0",
   "private": true,
-  "description": "Swifly server list proxy for Gameserve.rs T7 Team Deathmatch base-map servers.",
+  "description": "Swifly BOIII update manifest server",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
-  },
-  "engines": {
-    "node": ">=20"
+    "dev": "node src/index.js"
   },
   "dependencies": {
-    "cheerio": "^1.0.0",
-    "cors": "^2.8.5",
     "express": "^4.19.2",
     "helmet": "^7.1.0",
     "morgan": "^1.10.0",
-    "jszip": "^3.10.1"
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

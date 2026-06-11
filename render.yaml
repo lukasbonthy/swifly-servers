@@ -1,23 +1,12 @@
 services:
   - type: web
-    name: swifly-server-registry
+    name: swifly-manifest-site
     env: node
     plan: free
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /health
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: APP_SECRET
-        generateValue: true
-      - key: ADMIN_API_KEY
-        generateValue: true
-      - key: GAMESERVERS_URL
-        value: https://gameserve.rs/?game=t7
-      - key: REFRESH_INTERVAL_SECONDS
-        value: "300"
-      - key: CACHE_TTL_SECONDS
-        value: "600"
-      - key: HEARTBEAT_TTL_SECONDS
-        value: "180"
+      - key: NODE_VERSION
+        value: 20
+      - key: CACHE_SECONDS
+        value: 30
