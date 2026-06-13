@@ -10,25 +10,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            rajdhani: ['Rajdhani', 'system-ui', 'sans-serif'],
-            inter: ['Inter', 'system-ui', 'sans-serif'],
-          },
-          colors: {
-            brand: '#f97316',
-            'brand-light': '#fb923c',
-            'brand-dark': '#ea580c',
-          }
-        }
-      }
-    }
-  </script>
+  <!-- Tailwind CSS: local, precompiled, IE/MSHTML-safe build.
+       Replaces the old cdn.tailwindcss.com <script> (which the embedded WebView
+       could not run). Pure CSS, no JavaScript. Loaded before main.css so the
+       hand-written design always takes precedence on any conflict. -->
+  <link rel="stylesheet" href="tailwind.css">
 
   <link rel="stylesheet" href="main.css">
 </head>
