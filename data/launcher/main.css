@@ -1,10 +1,10 @@
-/* ─────────────────────────────────────────────────────────────
-   SWIFLY BOIII — REDESIGNED STYLESHEET
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   SWIFLY BOIII â€” REDESIGNED STYLESHEET
    Font stack: Rajdhani (display) + Inter (body)
-   Palette: void-black bg · orange (#f97316) accent · glass panels
-   ───────────────────────────────────────────────────────────── */
+   Palette: void-black bg Â· orange (#f97316) accent Â· glass panels
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/* ── Base Reset ────────────────────────────────────────────── */
+/* â”€â”€ Base Reset â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -22,7 +22,7 @@
 *::-webkit-scrollbar-thumb:hover { background: rgba(249, 115, 22, 0.55); }
 *::-webkit-scrollbar-corner { background: transparent; }
 
-/* ── User-select guards ─────────────────────────────────────── */
+/* â”€â”€ User-select guards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .nav-sidebar, .nav-btn, .btn, .btn-play-large,
 .launch-option-card, .popup-backdrop, .popup-header, .popup-close,
 .page, .mod-card, .progress-footer, .nav-version, .workshop-item-card,
@@ -41,7 +41,7 @@ input[type="text"], input[type="number"], textarea {
   -webkit-touch-callout: default;
 }
 
-/* ── Root / Body ────────────────────────────────────────────── */
+/* â”€â”€ Root / Body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html, body {
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   height: 100%;
@@ -61,7 +61,7 @@ html, body {
 
 @keyframes fadeIn { to { opacity: 1; } }
 
-/* ── Animations ─────────────────────────────────────────────── */
+/* â”€â”€ Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes titleGlow {
   0%, 100% {
     text-shadow:
@@ -113,7 +113,7 @@ html, body {
   50%        { box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12); }
 }
 
-/* ── Layout ─────────────────────────────────────────────────── */
+/* â”€â”€ Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .main-container {
   display: flex;
   flex: 1;
@@ -135,7 +135,7 @@ html, body {
   z-index: 0;
 }
 
-/* ── SIDEBAR ─────────────────────────────────────────────────── */
+/* â”€â”€ SIDEBAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .nav-sidebar {
   width: 82px;
   background: rgba(9, 8, 7, 0.94);
@@ -277,7 +277,7 @@ html, body {
   letter-spacing: 0.06em;
 }
 
-/* ── Content Area ────────────────────────────────────────────── */
+/* â”€â”€ Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .content-area {
   flex: 1;
   display: flex;
@@ -312,7 +312,7 @@ html, body {
   width: 100%;
 }
 
-/* ── HOME PAGE ───────────────────────────────────────────────── */
+/* â”€â”€ HOME PAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 #mainPage.active {
   align-items: center;
   justify-content: center;
@@ -358,7 +358,7 @@ h1 {
   padding: 24px;
 }
 
-/* Corner targeting decorators — the signature element */
+/* Corner targeting decorators â€” the signature element */
 .main-content::before,
 .main-content::after {
   content: '';
@@ -386,7 +386,7 @@ h1 {
 /* Additional corner decorators via wrapper hack */
 .main-content > *+* { margin-top: 14px; }
 
-/* ── Launch Options Gear Button ──────────────────────────────── */
+/* â”€â”€ Launch Options Gear Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .main-page-top {
   position: absolute;
   top: 20px;
@@ -505,7 +505,7 @@ h1 {
   font-weight: 600;
 }
 
-/* ── Version Selector ────────────────────────────────────────── */
+/* â”€â”€ Version Selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .play-section {
   display: flex;
   flex-direction: column;
@@ -609,7 +609,7 @@ h1 {
   font-weight: 600;
 }
 
-/* ── PLAY BUTTON ─────────────────────────────────────────────── */
+/* â”€â”€ PLAY BUTTON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .btn-play-large {
   display: inline-flex;
   align-items: center;
@@ -688,7 +688,7 @@ h1 {
   opacity: 0.9;
 }
 
-/* ── Player Name Input ───────────────────────────────────────── */
+/* â”€â”€ Player Name Input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .player-section { width: 100%; }
 
 .player-label {
@@ -767,7 +767,7 @@ h1 {
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Action Buttons ──────────────────────────────────────────── */
+/* â”€â”€ Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .action-buttons {
   display: flex;
   width: 100%;
@@ -809,7 +809,7 @@ h1 {
   font-family: Consolas, monospace;
 }
 
-/* ── General .btn ────────────────────────────────────────────── */
+/* â”€â”€ General .btn â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -928,7 +928,7 @@ h1 {
   font-size: 0.9rem;
 }
 
-/* ── PAGE HEADER ─────────────────────────────────────────────── */
+/* â”€â”€ PAGE HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .page-header {
   margin-bottom: 16px;
   flex-shrink: 0;
@@ -951,7 +951,7 @@ h1 {
   line-height: 1.5;
 }
 
-/* ── WORKSHOP PAGE ───────────────────────────────────────────── */
+/* â”€â”€ WORKSHOP PAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .quick-download-card {
   background: rgba(10, 9, 8, 0.6);
   backdrop-filter: blur(16px);
@@ -1413,7 +1413,7 @@ h1 {
   border-top: 1px solid rgba(55, 52, 48, 0.3);
 }
 
-/* ── LIBRARY PAGE ────────────────────────────────────────────── */
+/* â”€â”€ LIBRARY PAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .library-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1589,7 +1589,7 @@ h1 {
   animation: spin 0.75s linear infinite;
 }
 
-/* ── FRIENDS PAGE ────────────────────────────────────────────── */
+/* â”€â”€ FRIENDS PAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .friends-add-card {
   background: rgba(10, 9, 8, 0.6);
   backdrop-filter: blur(16px);
@@ -1776,7 +1776,7 @@ h1 {
 .friends-empty-icon { font-size: 2.5rem; opacity: 0.3; }
 .friends-empty-text { font-size: 0.84rem; }
 
-/* ── SETTINGS PAGE ───────────────────────────────────────────── */
+/* â”€â”€ SETTINGS PAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .settings-tabs {
   display: flex;
   gap: 0;
@@ -1874,7 +1874,7 @@ h1 {
   line-height: 1.4;
 }
 
-/* Toggle Switch — much more polished */
+/* Toggle Switch â€” much more polished */
 .settings-toggle {
   position: relative;
   width: 44px;
@@ -2100,7 +2100,7 @@ h1 {
 
 .patch-item:hover { border-color: rgba(55, 52, 48, 0.5); }
 
-/* ── PROGRESS FOOTER ─────────────────────────────────────────── */
+/* â”€â”€ PROGRESS FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .progress-footer {
   background: rgba(10, 8, 7, 0.98);
   border-top: 1px solid rgba(249, 115, 22, 0.28);
@@ -2183,7 +2183,7 @@ h1 {
 
 .progress-buttons { display: flex; gap: 6px; }
 
-/* ── POPUPS / MODALS ─────────────────────────────────────────── */
+/* â”€â”€ POPUPS / MODALS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .popup-backdrop {
   position: fixed;
   inset: 0;
@@ -2353,7 +2353,7 @@ h1 {
 }
 
 .component-checkbox input[type="checkbox"]:checked + .checkbox-visual::after {
-  content: '✓';
+  content: 'âœ“';
   color: #fff;
   font-size: 11px;
   font-weight: bold;
@@ -2468,7 +2468,7 @@ h1 {
   margin-top: 16px;
 }
 
-/* ── Workshop modal info styles ──────────────────────────────── */
+/* â”€â”€ Workshop modal info styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .workshop-modal-info-line {
   font-size: 0.8rem;
   color: rgba(190, 185, 178, 0.65);
@@ -2498,7 +2498,7 @@ h1 {
   letter-spacing: 0.04em;
 }
 
-/* ── Misc ─────────────────────────────────────────────────────── */
+/* â”€â”€ Misc â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .workshop-status {
   margin-top: 8px;
   font-size: 0.8rem;
@@ -2532,3 +2532,18 @@ h1 {
 
 /* Shared input focus ring */
 input:focus-visible { outline: none; }
+.join-game-status {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.78rem;
+  text-align: center;
+  min-height: 1rem;
+}
+
+.join-game-status.error {
+  color: rgba(239, 68, 68, 0.95);
+}
+
+.join-game-status.ok {
+  color: rgba(34, 197, 94, 0.95);
+}
