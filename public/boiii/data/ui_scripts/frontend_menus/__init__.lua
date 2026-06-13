@@ -27,11 +27,20 @@ CoD.LobbyButtons.MP_FIND_MATCH = {
   customId = "btnFindMatch",
 }
 
+CoD.LobbyButtons.STATS = {
+  stringRef = "STATS",
+  action = function(self, element, controller, param, menu)
+    SetPerControllerTableProperty(controller, "disableGameSettingsOptions", true)
+    OpenPopup(menu, "BoiiiStatsMenu", controller)
+  end,
+  customId = "btnMPStats",
+}
+
 CoD.LobbyButtons.QUICK_SETTINGS = {
   stringRef = "QUICK SETTINGS",
   action = function(self, element, controller, param, menu)
     SetPerControllerTableProperty(controller, "disableGameSettingsOptions", true)
-    OpenPopup(menu, "SwiflyQuickSettingsMenu", controller)
+    OpenPopup(menu, "BoiiiQuickSettingsMenu", controller)
   end,
   customId = "btnQuickSettings",
 }
@@ -72,17 +81,13 @@ CoD.LobbyButtons.GameSettingsFlyoutMP = {
   customId = "btnGameSettingsFlyoutMPCustom",
 }
 
--- Swifly Join Game button.
--- This is intentionally data-side UI only: it calls the native client command
--- "join_swifly_server". The native client command should fetch
--- https://swifly-servers.onrender.com/api/servers, choose an available server,
--- and execute connect <address>:<port>.
-CoD.LobbyButtons.JOIN_GAME = {
-  stringRef = "JOIN GAME",
+CoD.LobbyButtons.SERVER_BROWSER = {
+  stringRef = "MENU_SERVER_BROWSER_CAPS",
   action = function(self, element, controller, param, menu)
-    Engine.Exec(controller, "join_swifly_server")
+    SetPerControllerTableProperty(controller, "disableGameSettingsOptions", true)
+    OpenPopup(menu, "LobbyServerBrowserOnline", controller)
   end,
-  customId = "btnJoinGame",
+  customId = "btnDedicated",
 }
 
 local shouldShowMapVote = enableLobbyMapVote
@@ -108,6 +113,7 @@ local addCustomButtons = function(controller, menuId, buttonTable, isLeader)
     or (LobbyData.UITargets.UI_CPLOBBYONLINE and menuId == LobbyData.UITargets.UI_CPLOBBYONLINE.id)
     or (LobbyData.UITargets.UI_CPLOBBYLANGAME and menuId == LobbyData.UITargets.UI_CPLOBBYLANGAME.id)
   then
+    utils.AddSmallButton(controller, buttonTable, CoD.LobbyButtons.STATS)
     utils.AddSmallButton(controller, buttonTable, CoD.LobbyButtons.QUICK_SETTINGS)
   end
 
@@ -123,7 +129,7 @@ local addCustomButtons = function(controller, menuId, buttonTable, isLeader)
   if menuId == LobbyData.UITargets.UI_MPLOBBYONLINE.id then
     shouldShowMapVote = enableLobbyMapVote
     if enableLargeServerBrowserButton then
-      utils.AddLargeButton(controller, buttonTable, CoD.LobbyButtons.JOIN_GAME, 1)
+      utils.AddLargeButton(controller, buttonTable, CoD.LobbyButtons.SERVER_BROWSER, 1)
     end
   elseif menuId == LobbyData.UITargets.UI_MPLOBBYONLINEPUBLICGAME.id then
     utils.RemoveButton(buttonTable, CoD.LobbyButtons.MP_PUBLIC_LOBBY_LEADERBOARD)
@@ -146,11 +152,12 @@ local addCustomButtons = function(controller, menuId, buttonTable, isLeader)
     utils.AddLargeButton(controller, buttonTable, CoD.LobbyButtons.THEATER_ZM)
 
     utils.RemoveSpaces(buttonTable)
-    utils.AddSpacer(buttonTable, utils.GetButtonIndex(buttonTable, CoD.LobbyButtons.JOIN_GAME))
+    utils.AddSpacer(buttonTable, utils.GetButtonIndex(buttonTable, CoD.LobbyButtons.SERVER_BROWSER))
     local bgbIndex = utils.GetButtonIndex(buttonTable, CoD.LobbyButtons.ZM_BUBBLEGUM_BUFFS)
     if bgbIndex ~= nil then
       utils.AddSpacer(buttonTable, bgbIndex - 1)
     end
+    utils.AddSpacer(buttonTable, utils.GetButtonIndex(buttonTable, CoD.LobbyButtons.STATS))
   end
 end
 

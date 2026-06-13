@@ -43,54 +43,6 @@ end
 
 local currentSortType = nil
 
-local SWIFLY_BASE_MP_MAPS = {
-  mp_apartments = true, -- Evac
-  mp_biodome = true, -- Combine
-  mp_chinatown = true, -- Metro
-  mp_ethiopia = true, -- Exodus
-  mp_havoc = true, -- Havoc
-  mp_infection = true, -- Infection
-  mp_redwood = true, -- Redwood
-  mp_sector = true, -- Sector / Breach
-  mp_spire = true, -- Fringe / Spire naming varies across server APIs
-  mp_stronghold = true,
-  mp_veiled = true, -- Hunted
-  mp_waterpark = true, -- Splash placeholder; harmless if absent
-}
-
-local function isSwiflyTdmBaseMap(info)
-  if not info then
-    return false
-  end
-
-  local gt = string.lower(info.gametype or "")
-  if gt ~= "tdm" and gt ~= "team deathmatch" then
-    return false
-  end
-
-  if info.zombies == true or (info.campaign and info.campaign == 1) then
-    return false
-  end
-
-  if info.password == true then
-    return false
-  end
-
-  local map = string.lower(info.map or "")
-  if map == "" then
-    return false
-  end
-
-  -- BO3 DLC multiplayer maps usually still start with mp_, so reject known DLC
-  -- by name and allow the base playlist names we care about.
-  if string.find(map, "_dlc", 1, true) then
-    return false
-  end
-
-  return SWIFLY_BASE_MP_MAPS[map] == true
-end
-
-
 local function sortFilteredIndices(sortType)
   if not filteredServerIndices or #filteredServerIndices == 0 then
     return
@@ -271,7 +223,7 @@ local function rebuildFilteredIndices()
         modeOk = (info.campaign and info.campaign == 1)
       end
 
-      if modeOk and isSwiflyTdmBaseMap(info) and passesCustomFilters(info) then
+      if modeOk and passesCustomFilters(info) then
         table.insert(filteredServerIndices, i)
       end
     end
@@ -437,21 +389,31 @@ DataSources.ServerBrowserCategories = ListHelper_SetupDataSource("ServerBrowserC
 
   table.insert(tabs, {
     models = {
-      tabName = "JOIN GAME",
+      tabName = "ALL SERVERS",
       serverType = CUSTOM_TYPE_ALL,
     },
   })
 
   table.insert(tabs, {
     models = {
-      tabName = "SWIFLY TDM",
-      serverType = CUSTOM_TYPE_ALL,
+      tabName = "MENU_MULTIPLAYER_CAPS",
+      serverType = Enum.SteamServerRequestType.STEAM_SERVER_REQUEST_TYPE_INTERNET,
     },
   })
 
-  -- Swifly hides public Zombies servers in this build.
+  table.insert(tabs, {
+    models = {
+      tabName = "MENU_ZOMBIES_CAPS",
+      serverType = CUSTOM_TYPE_ZOMBIES,
+    },
+  })
 
-  -- Swifly hides public Campaign servers in this build.
+  table.insert(tabs, {
+    models = {
+      tabName = "CAMPAIGN",
+      serverType = CUSTOM_TYPE_CAMPAIGN,
+    },
+  })
 
   table.insert(tabs, {
     models = {

@@ -18,7 +18,7 @@ if isPrivateGame then
     end)
   end
 
-  DataSources.SwiflyGameTweaks = DataSourceHelpers.ListSetup("SwiflyGameTweaks", function(controller)
+  DataSources.BoiiiGameTweaks = DataSourceHelpers.ListSetup("BoiiiGameTweaks", function(controller)
     local t = {}
 
     local speedOptions = {}
@@ -201,7 +201,7 @@ if isPrivateGame then
     return t
   end)
 
-  LUI.createMenu.SwiflyGameTweaksMenu = function(controller)
+  LUI.createMenu.BoiiiGameTweaksMenu = function(controller)
     pcall(require, "ui.uieditor.widgets.StartMenu.StartMenu_frame_noBG")
     pcall(require, "ui.uieditor.widgets.StartMenu.StartMenu_Options_Slider_Item_Arrow")
     pcall(require, "ui.uieditor.widgets.StartMenu.StartMenu_Options_Slider_Control_Item")
@@ -212,13 +212,13 @@ if isPrivateGame then
 
     local SliderWidget = CoD.Slider_Small or CoD.StartMenu_Options_Slider
 
-    local self = CoD.Menu.NewForUIEditor("SwiflyGameTweaksMenu")
+    local self = CoD.Menu.NewForUIEditor("BoiiiGameTweaksMenu")
     self.soundSet = "ChooseDecal"
     self:setOwner(controller)
     self:setLeftRight(true, true, 0, 0)
     self:setTopBottom(true, true, 0, 0)
     self:playSound("menu_open", controller)
-    self.buttonModel = Engine.CreateModel(Engine.GetModelForController(controller), "SwiflyGameTweaksMenu.buttonPrompts")
+    self.buttonModel = Engine.CreateModel(Engine.GetModelForController(controller), "BoiiiGameTweaksMenu.buttonPrompts")
     self.anyChildUsesUpdateState = true
 
     local bg = LUI.UIImage.new()
@@ -236,7 +236,7 @@ if isPrivateGame then
       list:setWidgetType(SliderWidget)
     end
     list:setVerticalCount(9)
-    list:setDataSource("SwiflyGameTweaks")
+    list:setDataSource("BoiiiGameTweaks")
     self:addElement(list)
     self.Options = list
 
@@ -285,7 +285,7 @@ if isPrivateGame then
       end
       element.Options:close()
       Engine.UnsubscribeAndFreeModel(
-        Engine.GetModel(Engine.GetModelForController(controller), "SwiflyGameTweaksMenu.buttonPrompts")
+        Engine.GetModel(Engine.GetModelForController(controller), "BoiiiGameTweaksMenu.buttonPrompts")
       )
     end)
 
@@ -293,9 +293,9 @@ if isPrivateGame then
   end
 end
 
-if not LUI.createMenu.SwiflyGameTweaksMenu then
-  LUI.createMenu.SwiflyGameTweaksMenu = function(controller)
-    local self = CoD.Menu.NewForUIEditor("SwiflyGameTweaksMenu")
+if not LUI.createMenu.BoiiiGameTweaksMenu then
+  LUI.createMenu.BoiiiGameTweaksMenu = function(controller)
+    local self = CoD.Menu.NewForUIEditor("BoiiiGameTweaksMenu")
     self.soundSet = "ChooseDecal"
     self:setOwner(controller)
     self:setLeftRight(true, true, 0, 0)

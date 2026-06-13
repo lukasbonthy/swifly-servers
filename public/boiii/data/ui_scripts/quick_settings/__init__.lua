@@ -2,7 +2,7 @@ if Engine.GetCurrentMap() ~= "core_frontend" then
   return
 end
 
-DataSources.SwiflyQuickSettings = DataSourceHelpers.ListSetup("SwiflyQuickSettings", function(controller)
+DataSources.BoiiiQuickSettings = DataSourceHelpers.ListSetup("BoiiiQuickSettings", function(controller)
   local optionsTable = {}
 
   local updateDvar = function(f1_arg0, f1_arg1, f1_arg2, dvarName, f1_arg4)
@@ -297,8 +297,8 @@ end)
 
 -- ── Quick Settings Menu ─────────────────────────────────────────────────────
 
-LUI.createMenu.SwiflyQuickSettingsMenu = function(controller)
-  local self = CoD.Menu.NewForUIEditor("SwiflyQuickSettingsMenu")
+LUI.createMenu.BoiiiQuickSettingsMenu = function(controller)
+  local self = CoD.Menu.NewForUIEditor("BoiiiQuickSettingsMenu")
   if PreLoadFunc then
     PreLoadFunc(self, controller)
   end
@@ -308,7 +308,7 @@ LUI.createMenu.SwiflyQuickSettingsMenu = function(controller)
   self:setTopBottom(true, true, 0, 0)
   self:playSound("menu_open", controller)
   self.buttonModel =
-    Engine.CreateModel(Engine.GetModelForController(controller), "SwiflyQuickSettingsMenu.buttonPrompts")
+    Engine.CreateModel(Engine.GetModelForController(controller), "BoiiiQuickSettingsMenu.buttonPrompts")
   self.anyChildUsesUpdateState = true
 
   local GameSettingsBackground = CoD.GameSettings_Background.new(self, controller)
@@ -328,7 +328,7 @@ LUI.createMenu.SwiflyQuickSettingsMenu = function(controller)
   Options:setTopBottom(true, false, 135, 720)
   Options.Title.DescTitle:setText(Engine.Localize("Frequently Used Settings"))
   Options.ButtonList:setVerticalCount(14)
-  Options.ButtonList:setDataSource("SwiflyQuickSettings")
+  Options.ButtonList:setDataSource("BoiiiQuickSettings")
   self:addElement(Options)
   self.Options = Options
 
@@ -362,7 +362,7 @@ LUI.createMenu.SwiflyQuickSettingsMenu = function(controller)
     element.GameSettingsBackground:close()
     element.Options:close()
     Engine.UnsubscribeAndFreeModel(
-      Engine.GetModel(Engine.GetModelForController(controller), "SwiflyQuickSettingsMenu.buttonPrompts")
+      Engine.GetModel(Engine.GetModelForController(controller), "BoiiiQuickSettingsMenu.buttonPrompts")
     )
   end)
 

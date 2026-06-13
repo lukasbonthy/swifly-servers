@@ -126,9 +126,9 @@ DataSources.StartMenuGameOptions = ListHelper_SetupDataSource("StartMenuGameOpti
         displayText = "GAME TWEAKS",
         action = function(self, element, controller, param, menu)
           if menu and menu.openPopup then
-            menu:openPopup("SwiflyGameTweaksMenu", controller)
+            menu:openPopup("BoiiiGameTweaksMenu", controller)
           else
-            OpenPopup(self, "SwiflyGameTweaksMenu", controller)
+            OpenPopup(self, "BoiiiGameTweaksMenu", controller)
           end
         end,
       },

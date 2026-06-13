@@ -1,1 +1,2 @@
-Swifly data package marker. Generated from cleaned BOIII data with stats UI removed.
+Swifly data package marker.
+Only data folders containing this file should be copied into AppData by swiflyboiii.exe.
