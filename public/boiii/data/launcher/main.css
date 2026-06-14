@@ -2547,3 +2547,309 @@ input:focus-visible { outline: none; }
 .join-game-status.ok {
   color: rgba(34, 197, 94, 0.95);
 }
+
+
+/* ============================================================================
+   PREMIUM POLISH LAYER
+   Elevates the existing orange-on-violet identity to a premium finish.
+   Trident/IE-safe: gradients, layered shadows, -ms- transforms only.
+   No var(), no backdrop-filter, no clip-path. Appended last so it wins by
+   source order. To revert, delete everything below this banner.
+   ============================================================================ */
+
+/* -- Atmosphere: cinematic darkening + neutral vignette + violet edge-echo
+      (ties the UI to the purple hero) + a faint warm bloom behind the title -- */
+.main-container::before {
+  background:
+    radial-gradient(70% 48% at 50% 30%, rgba(249,115,22,0.06) 0%, rgba(249,115,22,0) 60%),
+    linear-gradient(102deg, rgba(7,6,8,0.82) 0%, rgba(7,6,8,0.30) 50%, rgba(7,6,8,0.60) 100%),
+    linear-gradient(to top, rgba(4,3,6,0.94) 0%, rgba(7,6,8,0.10) 52%, rgba(7,6,8,0) 72%),
+    radial-gradient(120% 90% at 50% 42%, rgba(0,0,0,0) 56%, rgba(0,0,0,0.55) 100%),
+    radial-gradient(85% 70% at 0% 100%, rgba(124,58,237,0.12) 0%, rgba(124,58,237,0) 55%),
+    radial-gradient(85% 70% at 100% 0%, rgba(124,58,237,0.09) 0%, rgba(124,58,237,0) 55%);
+}
+
+/* -- Ambient power-core bloom behind the hero (the disciplined risk) --------- */
+#mainPage.active::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 720px;
+  height: 720px;
+  margin: -360px 0 0 -360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(249,115,22,0.11) 0%, rgba(249,115,22,0.045) 34%, rgba(249,115,22,0) 66%);
+  pointer-events: none;
+  z-index: 0;
+  animation: premiumBloom 7.5s ease-in-out infinite;
+}
+@keyframes premiumBloom {
+  0%, 100% { opacity: 0.6;  -ms-transform: scale(1);    transform: scale(1); }
+  50%      { opacity: 1;    -ms-transform: scale(1.07); transform: scale(1.07); }
+}
+#mainPage h1,
+#mainPage .description,
+#mainPage .main-content { position: relative; z-index: 2; }
+
+/* -- Sidebar: vertical gradient + refined edges ------------------------------ */
+.nav-sidebar {
+  background: linear-gradient(180deg, rgba(18,14,16,0.97) 0%, rgba(10,8,9,0.97) 45%, rgba(7,6,7,0.98) 100%);
+  border-right: 1px solid rgba(249,115,22,0.12);
+  box-shadow:
+    7px 0 50px rgba(0,0,0,0.70),
+    inset -1px 0 0 rgba(255,255,255,0.03),
+    inset 1px 0 0 rgba(0,0,0,0.50);
+}
+.nav-logo   { border-bottom: 1px solid rgba(255,255,255,0.05); }
+.nav-footer { border-top: 1px solid rgba(255,255,255,0.05); }
+.nav-logo-text { letter-spacing: 0.12em; }
+.nav-btn.active {
+  background: linear-gradient(90deg, rgba(249,115,22,0.16) 0%, rgba(249,115,22,0.05) 70%, rgba(249,115,22,0) 100%);
+}
+.nav-btn.active::before {
+  width: 3px;
+  box-shadow: 0 0 12px rgba(249,115,22,0.60), 0 0 22px rgba(249,115,22,0.25);
+}
+
+/* -- Hero typography --------------------------------------------------------- */
+h1 { letter-spacing: 0.05em; }
+.description {
+  color: rgba(236,231,226,0.82);
+  letter-spacing: 0.012em;
+  text-shadow: 0 1px 10px rgba(0,0,0,0.80);
+}
+
+/* -- Signature glass console panel around the controls ----------------------- */
+.main-content {
+  max-width: 452px;
+  padding: 30px 32px 30px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0) 16%),
+    linear-gradient(180deg, rgba(24,21,27,0.74) 0%, rgba(12,10,14,0.85) 100%);
+  border: 1px solid rgba(249,115,22,0.16);
+  border-radius: 16px;
+  box-shadow:
+    0 30px 80px rgba(0,0,0,0.62),
+    0 0 0 1px rgba(0,0,0,0.35),
+    0 0 70px rgba(249,115,22,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+/* reframe the reticle ticks just outside the rounded panel */
+.main-content::before, .main-content::after {
+  width: 16px; height: 16px;
+  border-color: rgba(249,115,22,0.6);
+}
+.main-content::before { top: -5px; left: -5px; border-width: 2px 0 0 2px; border-radius: 5px 0 0 0; }
+.main-content::after  { bottom: -5px; right: -5px; border-width: 0 2px 2px 0; border-radius: 0 0 5px 0; }
+
+/* -- PLAY button: layered gradient, top gloss, resting glow ------------------ */
+.btn-play-large {
+  border: 1px solid rgba(251,146,60,0.72);
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 46%),
+    linear-gradient(135deg, rgba(251,146,60,0.46) 0%, rgba(249,115,22,0.44) 46%, rgba(234,88,12,0.42) 100%);
+  box-shadow:
+    0 6px 24px rgba(249,115,22,0.34),
+    0 0 0 1px rgba(0,0,0,0.28),
+    inset 0 1px 0 rgba(255,255,255,0.22),
+    inset 0 -12px 26px rgba(124,45,18,0.28);
+  letter-spacing: 0.2em;
+}
+.btn-play-large:hover {
+  border-color: rgba(251,146,60,0.95);
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0) 46%),
+    linear-gradient(135deg, rgba(251,146,60,0.64) 0%, rgba(249,115,22,0.60) 46%, rgba(234,88,12,0.52) 100%);
+  box-shadow:
+    0 12px 40px rgba(249,115,22,0.50),
+    0 0 70px rgba(249,115,22,0.20),
+    inset 0 1px 0 rgba(255,255,255,0.26),
+    inset 0 -12px 26px rgba(124,45,18,0.30);
+}
+
+/* -- Cards: surface gradient + premium hover --------------------------------- */
+.mod-card {
+  background: linear-gradient(180deg, rgba(28,24,22,0.92) 0%, rgba(19,17,15,0.92) 100%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.mod-card:hover {
+  box-shadow: 0 12px 34px rgba(0,0,0,0.50), 0 0 26px rgba(249,115,22,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
+  transform: translateY(-3px);
+}
+.workshop-item-card {
+  background: linear-gradient(180deg, rgba(30,27,24,0.90) 0%, rgba(20,18,16,0.90) 100%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.workshop-item-card:hover {
+  background: linear-gradient(180deg, rgba(42,37,33,0.96) 0%, rgba(28,25,22,0.96) 100%);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.50), 0 0 24px rgba(249,115,22,0.18), -3px 0 0 rgba(249,115,22,0.60), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.friend-item {
+  background: linear-gradient(180deg, rgba(30,27,24,0.72) 0%, rgba(22,20,18,0.74) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.friend-item:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.40), 0 0 16px rgba(249,115,22,0.10), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* -- Scroll wells ------------------------------------------------------------ */
+.mods-grid-wrap, .workshop-browse-grid, .friends-list-wrap {
+  background: linear-gradient(180deg, rgba(8,7,6,0.55) 0%, rgba(5,4,4,0.60) 100%);
+  border: 1px solid rgba(60,56,54,0.35);
+  box-shadow: inset 0 2px 14px rgba(0,0,0,0.40);
+}
+
+/* -- Sub-page panels / settings rows ----------------------------------------- */
+.quick-download-card, .friends-add-card, .settings-row, .settings-path-row,
+.settings-about, .patch-item, .remove-progress-bar {
+  background: linear-gradient(180deg, rgba(18,15,13,0.62) 0%, rgba(11,10,9,0.64) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 2px 8px rgba(0,0,0,0.22);
+}
+.settings-row:hover {
+  background: linear-gradient(180deg, rgba(24,20,18,0.70) 0%, rgba(15,13,12,0.72) 100%);
+  border-color: rgba(249,115,22,0.22);
+}
+
+/* -- Popups & modals --------------------------------------------------------- */
+.popup, .workshop-modal {
+  background: linear-gradient(180deg, rgba(26,22,20,0.99) 0%, rgba(15,13,12,0.99) 100%);
+  border: 1px solid rgba(249,115,22,0.20);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.60),
+    0 36px 90px rgba(0,0,0,0.82),
+    0 0 80px rgba(249,115,22,0.07),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.popup-header, .workshop-modal-header {
+  background: linear-gradient(180deg, rgba(249,115,22,0.09) 0%, rgba(249,115,22,0.02) 100%);
+  border-bottom: 1px solid rgba(249,115,22,0.16);
+}
+
+/* -- Dropdowns --------------------------------------------------------------- */
+.launch-dropdown, .version-selector-options {
+  background: linear-gradient(180deg, rgba(22,18,17,0.99) 0%, rgba(13,11,10,0.99) 100%);
+  border: 1px solid rgba(249,115,22,0.22);
+  box-shadow: 0 22px 54px rgba(0,0,0,0.72), 0 0 50px rgba(249,115,22,0.05), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.version-selector-display {
+  background: linear-gradient(180deg, rgba(28,25,23,0.92) 0%, rgba(20,18,16,0.92) 100%);
+}
+
+/* -- Footer / progress bars -------------------------------------------------- */
+.progress-footer {
+  background: linear-gradient(180deg, rgba(15,12,10,0.98) 0%, rgba(9,7,6,0.99) 100%);
+  border-top: 1px solid rgba(249,115,22,0.38);
+  box-shadow: 0 -10px 34px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.progress-bar-container, .ws-progress-track, .verify-progress-bar, .remove-track {
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.60);
+}
+.progress-fill, .workshop-progress-fill, .verify-progress-fill, .remove-fill {
+  box-shadow: 0 0 12px rgba(249,115,22,0.50);
+}
+
+/* -- Inputs: unified premium focus glow -------------------------------------- */
+.player-input:focus, .workshop-search-input:focus, .workshop-input-row input:focus,
+.friends-add-row input:focus, .settings-input:focus, .pool-input:focus {
+  border-color: rgba(249,115,22,0.60);
+  box-shadow: 0 0 0 3px rgba(249,115,22,0.13), 0 0 20px rgba(249,115,22,0.12), 0 2px 8px rgba(0,0,0,0.40);
+}
+
+/* -- Toggle polish ----------------------------------------------------------- */
+.settings-toggle.active {
+  background: linear-gradient(180deg, rgba(251,146,60,0.95) 0%, rgba(249,115,22,0.90) 100%);
+  box-shadow: 0 0 0 1px rgba(249,115,22,0.25), 0 0 14px rgba(249,115,22,0.35);
+}
+
+/* -- Primary button gloss ---------------------------------------------------- */
+.btn-primary {
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 50%),
+    rgba(249,115,22,0.24);
+}
+.btn-primary:hover {
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 50%),
+    rgba(249,115,22,0.40);
+  box-shadow: 0 6px 22px rgba(249,115,22,0.34);
+}
+
+/* -- Keyboard focus ring (modern engines; ignored by Trident) ---------------- */
+.nav-btn:focus-visible, .btn:focus-visible, .gear-btn:focus-visible,
+.settings-toggle:focus-visible, .settings-tab:focus-visible {
+  box-shadow: 0 0 0 2px rgba(249,115,22,0.60), 0 0 0 4px rgba(249,115,22,0.18);
+}
+
+/* -- Respect reduced motion -------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  #mainPage.active::before,
+  h1,
+  .nav-logo-text em { animation: none; }
+}
+
+
+/* ============================================================================
+   PREMIUM POLISH v2 — typographic structure + filmic finish
+   (Trident/IE-safe. Appended last; overrides by source order.)
+   ============================================================================ */
+
+/* -- Filmic grain across the whole frame: kills gradient banding, adds depth -- */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url('grain.png');
+  background-repeat: repeat;
+  opacity: 0.05;
+}
+
+/* -- Hero eyebrow: editorial structure above the wordmark -------------------- */
+.hero-eyebrow {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-align: center;
+  align-items: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  gap: 11px;
+  margin-bottom: 16px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(228,223,217,0.52);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+  position: relative;
+  z-index: 2;
+}
+.hero-eyebrow-sep { color: rgba(249,115,22,0.85); font-weight: 700; }
+.hero-eyebrow-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #f97316;
+  box-shadow: 0 0 9px rgba(249,115,22,0.95), 0 0 18px rgba(249,115,22,0.45);
+  -ms-flex-negative: 0;
+  flex-shrink: 0;
+}
+
+/* -- Wordmark: tighter, stronger -------------------------------------------- */
+h1 { letter-spacing: 0.055em; margin-bottom: 16px; }
+.title-gap { width: 0.2em; }
+
+/* -- Console panel: structural hairline between launch + identity ------------ */
+.play-section {
+  width: 100%;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+/* -- Description: a touch tighter / more refined ---------------------------- */
+.description {
+  max-width: 444px;
+  line-height: 1.62;
+  margin-bottom: 28px;
+}
