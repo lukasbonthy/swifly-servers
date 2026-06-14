@@ -2853,3 +2853,226 @@ h1 { letter-spacing: 0.055em; margin-bottom: 16px; }
   line-height: 1.62;
   margin-bottom: 28px;
 }
+
+
+/* ============================================================================
+   PREMIUM POLISH v3 — MOTION SYSTEM
+   Orchestrated entrance + page transitions + ambient detail.
+   Trident/IE-safe. Hoverable elements use `backwards` fill so :hover still
+   works after the entrance. All motion is disabled under reduced-motion.
+   ============================================================================ */
+
+@keyframes uiFade   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes uiRise   { from { opacity: 0; -ms-transform: translateY(18px); transform: translateY(18px); }
+                      to   { opacity: 1; -ms-transform: translateY(0);    transform: translateY(0); } }
+@keyframes uiRiseSm { from { opacity: 0; -ms-transform: translateY(10px); transform: translateY(10px); }
+                      to   { opacity: 1; -ms-transform: translateY(0);    transform: translateY(0); } }
+@keyframes uiSlideLeft { from { opacity: 0; -ms-transform: translateX(-24px); transform: translateX(-24px); }
+                         to   { opacity: 1; -ms-transform: translateX(0);     transform: translateX(0); } }
+@keyframes uiPanelIn { from { opacity: 0; -ms-transform: translateY(16px) scale(0.985); transform: translateY(16px) scale(0.985); }
+                       to   { opacity: 1; -ms-transform: translateY(0) scale(1);         transform: translateY(0) scale(1); } }
+@keyframes pageRise { from { opacity: 0; -ms-transform: translateY(14px); transform: translateY(14px); }
+                      to   { opacity: 1; -ms-transform: translateY(0);    transform: translateY(0); } }
+@keyframes cardIn   { from { opacity: 0; -ms-transform: translateY(12px); transform: translateY(12px); }
+                      to   { opacity: 1; -ms-transform: translateY(0);    transform: translateY(0); } }
+@keyframes dotPulse { 0%,100% { opacity: 1;    box-shadow: 0 0 9px rgba(249,115,22,0.95), 0 0 18px rgba(249,115,22,0.45); }
+                      50%      { opacity: 0.6;  box-shadow: 0 0 5px rgba(249,115,22,0.55); } }
+@keyframes barSheen { 0% { left: -45%; } 100% { left: 115%; } }
+
+/* -- Sidebar enters; nav items cascade (first load) -------------------------- */
+.nav-sidebar { animation: uiSlideLeft 0.55s cubic-bezier(0.2,0.7,0.2,1) both; }
+.nav-logo    { animation: uiRiseSm 0.5s ease-out 0.18s both; }
+.nav-footer  { animation: uiFade 0.6s ease-out 0.62s both; }
+.nav-items .nav-btn { animation: uiRiseSm 0.5s ease-out both; }
+.nav-items .nav-btn:nth-child(1) { animation-delay: 0.24s; }
+.nav-items .nav-btn:nth-child(2) { animation-delay: 0.31s; }
+.nav-items .nav-btn:nth-child(3) { animation-delay: 0.38s; }
+.nav-items .nav-btn:nth-child(4) { animation-delay: 0.45s; }
+.nav-items .nav-btn:nth-child(5) { animation-delay: 0.52s; }
+
+/* -- Home hero cascade (replays when returning Home) ------------------------- */
+.hero-eyebrow           { animation: uiRiseSm 0.55s cubic-bezier(0.2,0.7,0.2,1) 0.12s both; }
+#mainPage h1            { animation: uiRise 0.7s cubic-bezier(0.2,0.7,0.2,1) 0.22s both,
+                                     titleGlow 4.5s ease-in-out 1.4s infinite; }
+#mainPage .description  { animation: uiRise 0.6s cubic-bezier(0.2,0.7,0.2,1) 0.34s both; }
+#mainPage .main-content { animation: uiPanelIn 0.72s cubic-bezier(0.2,0.7,0.2,1) 0.44s both; }
+.main-page-top          { animation: uiRiseSm 0.5s ease-out 0.58s both; }
+
+/* -- Page-to-page transition on every nav switch ----------------------------- */
+.page.active .page-scroll-inner { animation: pageRise 0.5s cubic-bezier(0.2,0.7,0.2,1) both; }
+
+/* -- Staggered card / list reveal (backwards fill keeps :hover working) ------ */
+.mod-card, .workshop-item-card, .friend-item {
+  animation: cardIn 0.45s cubic-bezier(0.2,0.7,0.2,1) backwards;
+}
+.mod-card:nth-child(1), .workshop-item-card:nth-child(1), .friend-item:nth-child(1) { animation-delay: 0.03s; }
+.mod-card:nth-child(2), .workshop-item-card:nth-child(2), .friend-item:nth-child(2) { animation-delay: 0.07s; }
+.mod-card:nth-child(3), .workshop-item-card:nth-child(3), .friend-item:nth-child(3) { animation-delay: 0.11s; }
+.mod-card:nth-child(4), .workshop-item-card:nth-child(4), .friend-item:nth-child(4) { animation-delay: 0.15s; }
+.mod-card:nth-child(5), .workshop-item-card:nth-child(5), .friend-item:nth-child(5) { animation-delay: 0.19s; }
+.mod-card:nth-child(6), .workshop-item-card:nth-child(6), .friend-item:nth-child(6) { animation-delay: 0.23s; }
+.mod-card:nth-child(7), .workshop-item-card:nth-child(7), .friend-item:nth-child(7) { animation-delay: 0.27s; }
+.mod-card:nth-child(8), .workshop-item-card:nth-child(8), .friend-item:nth-child(8) { animation-delay: 0.31s; }
+.mod-card:nth-child(9), .workshop-item-card:nth-child(9), .friend-item:nth-child(9) { animation-delay: 0.35s; }
+.mod-card:nth-child(n+10), .workshop-item-card:nth-child(n+10), .friend-item:nth-child(n+10) { animation-delay: 0.39s; }
+
+/* -- Ambient detail ---------------------------------------------------------- */
+.hero-eyebrow-dot { animation: dotPulse 2.6s ease-in-out infinite; }
+
+/* moving sheen across active progress fills */
+.progress-fill, .workshop-progress-fill, .verify-progress-fill, .remove-fill { overflow: hidden; }
+.progress-fill::after, .workshop-progress-fill::after,
+.verify-progress-fill::after, .remove-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -45%;
+  width: 38%;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.38) 50%, rgba(255,255,255,0) 100%);
+  -ms-transform: skewX(-20deg);
+  transform: skewX(-20deg);
+  animation: barSheen 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* -- Refined hover micro-interactions ---------------------------------------- */
+.nav-btn:not(.active):hover .nav-icon { -ms-transform: translateY(-2px); transform: translateY(-2px); }
+.gear-btn:hover { -ms-transform: translateY(-1px); transform: translateY(-1px); }
+.workshop-item-button:hover, .friend-icon { transition: all 0.18s ease; }
+
+/* -- Respect reduced motion: show everything, no motion ---------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .nav-sidebar, .nav-logo, .nav-footer, .nav-items .nav-btn,
+  .hero-eyebrow, #mainPage h1, #mainPage .description, #mainPage .main-content,
+  .main-page-top, .page.active .page-scroll-inner,
+  .mod-card, .workshop-item-card, .friend-item,
+  .hero-eyebrow-dot {
+    animation: none !important;
+    opacity: 1 !important;
+    -ms-transform: none !important;
+    transform: none !important;
+  }
+  .progress-fill::after, .workshop-progress-fill::after,
+  .verify-progress-fill::after, .remove-fill::after { animation: none !important; opacity: 0 !important; }
+}
+
+
+/* ============================================================================
+   PREMIUM POLISH v4 — depth, focal CTA, modal motion
+   Trident/IE-safe. Static box-shadow fallbacks kept where motion drives glow,
+   so reduced-motion still looks finished.
+   ============================================================================ */
+
+/* -- PLAY button: glass-molded surface + breathing glow --------------------- */
+.btn-play-large {
+  padding: 18px 52px;
+  border: 1px solid rgba(251,146,60,0.78);
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.05) 18%, rgba(255,255,255,0) 50%),
+    linear-gradient(135deg, rgba(251,146,60,0.50) 0%, rgba(249,115,22,0.48) 45%, rgba(234,88,12,0.46) 100%);
+  box-shadow:
+    0 6px 22px rgba(249,115,22,0.30),
+    0 0 0 1px rgba(0,0,0,0.28),
+    inset 0 1px 0 rgba(255,255,255,0.24),
+    inset 0 -13px 26px rgba(124,45,18,0.32);
+  animation: playBreath 2.8s ease-in-out infinite;
+}
+@keyframes playBreath {
+  0%, 100% {
+    box-shadow:
+      0 6px 22px rgba(249,115,22,0.30),
+      0 0 0 1px rgba(0,0,0,0.28),
+      inset 0 1px 0 rgba(255,255,255,0.24),
+      inset 0 -13px 26px rgba(124,45,18,0.32);
+  }
+  50% {
+    box-shadow:
+      0 8px 30px rgba(249,115,22,0.46),
+      0 0 30px rgba(249,115,22,0.16),
+      0 0 0 1px rgba(0,0,0,0.28),
+      inset 0 1px 0 rgba(255,255,255,0.26),
+      inset 0 -13px 26px rgba(124,45,18,0.32);
+  }
+}
+.btn-play-large:hover {
+  border-color: rgba(251,146,60,0.98);
+  background:
+    linear-gradient(to bottom, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.06) 18%, rgba(255,255,255,0) 50%),
+    linear-gradient(135deg, rgba(251,146,60,0.66) 0%, rgba(249,115,22,0.62) 45%, rgba(234,88,12,0.54) 100%);
+  -ms-transform: translateY(-2px);
+  transform: translateY(-2px);
+  animation: playBreathHover 1.5s ease-in-out infinite;
+}
+@keyframes playBreathHover {
+  0%, 100% {
+    box-shadow:
+      0 11px 36px rgba(249,115,22,0.52),
+      0 0 44px rgba(249,115,22,0.20),
+      inset 0 1px 0 rgba(255,255,255,0.28),
+      inset 0 -13px 26px rgba(124,45,18,0.34);
+  }
+  50% {
+    box-shadow:
+      0 13px 46px rgba(249,115,22,0.64),
+      0 0 68px rgba(249,115,22,0.28),
+      inset 0 1px 0 rgba(255,255,255,0.30),
+      inset 0 -13px 26px rgba(124,45,18,0.34);
+  }
+}
+.btn-play-large:active { -ms-transform: translateY(0); transform: translateY(0); }
+
+/* -- Signature reticle ticks: soft glow ------------------------------------- */
+.main-content::before, .main-content::after {
+  -webkit-box-shadow: 0 0 9px rgba(249,115,22,0.40);
+  box-shadow: 0 0 9px rgba(249,115,22,0.40);
+}
+
+/* -- Modal / popup / overlay entrance motion -------------------------------- */
+@keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalIn {
+  from { opacity: 0; -ms-transform: translateY(16px) scale(0.96); transform: translateY(16px) scale(0.96); }
+  to   { opacity: 1; -ms-transform: translateY(0) scale(1);       transform: translateY(0) scale(1); }
+}
+@keyframes modalInCentered {
+  from { opacity: 0; -ms-transform: translate(-50%,-46%) scale(0.96); transform: translate(-50%,-46%) scale(0.96); }
+  to   { opacity: 1; -ms-transform: translate(-50%,-50%) scale(1);    transform: translate(-50%,-50%) scale(1); }
+}
+@keyframes dropIn {
+  from { opacity: 0; -ms-transform: translateY(-6px); transform: translateY(-6px); }
+  to   { opacity: 1; -ms-transform: translateY(0);    transform: translateY(0); }
+}
+.popup-backdrop.active   { animation: backdropIn 0.2s ease-out both; }
+.popup-backdrop.active .popup { animation: modalIn 0.32s cubic-bezier(0.2,0.8,0.25,1) 0.04s both; }
+.workshop-overlay.active { animation: backdropIn 0.2s ease-out both; }
+.workshop-modal.active   { animation: modalInCentered 0.34s cubic-bezier(0.2,0.8,0.25,1) 0.04s both; }
+.launch-dropdown.open    { animation: dropIn 0.18s ease-out both; }
+.version-selector-container.open .version-selector-options { animation: dropIn 0.16s ease-out both; }
+
+/* -- Cohesive secondary buttons --------------------------------------------- */
+.btn::after { background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 55%); }
+.btn-discord { background: linear-gradient(180deg, rgba(88,101,242,0.28) 0%, rgba(88,101,242,0.15) 100%); }
+.btn-forum   { background: linear-gradient(180deg, rgba(139,92,246,0.28) 0%, rgba(139,92,246,0.15) 100%); }
+.btn-steam   { background: linear-gradient(180deg, rgba(35,90,165,0.45) 0%, rgba(35,90,165,0.28) 100%); }
+.action-buttons .btn, .btn-full {
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* -- Richer sidebar active state -------------------------------------------- */
+.nav-btn.active {
+  background: linear-gradient(90deg, rgba(249,115,22,0.20) 0%, rgba(249,115,22,0.06) 65%, rgba(249,115,22,0) 100%);
+  -webkit-box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.nav-btn.active .nav-label { color: #fb923c; }
+
+/* -- Reduced motion: keep glow static, no entrance/pulse -------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .btn-play-large { animation: none !important; }
+  .popup-backdrop.active, .popup-backdrop.active .popup,
+  .workshop-overlay.active, .workshop-modal.active,
+  .launch-dropdown.open, .version-selector-container.open .version-selector-options {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
